@@ -9,6 +9,8 @@ import {
   LogOut,
   UserCheck,
   Menu,
+  Cloud,
+  CloudOff,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -28,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenChange
     setIsOnline,
     pendingSyncCount,
     syncNow,
+    isFirebaseConnected,
   } = usePOS();
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -77,6 +80,32 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenChange
 
         {/* Right Actions: Sync, Status, User */}
         <div className="flex items-center gap-2">
+          {/* Realtime Database status */}
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg font-semibold border transition-all ${
+              isFirebaseConnected
+                ? 'bg-sky-50 text-sky-800 border-sky-200'
+                : 'bg-amber-50 text-amber-900 border-amber-300'
+            }`}
+            title={
+              isFirebaseConnected
+                ? 'Firebase Firestore realtime multi-device sync active'
+                : 'Firebase offline / using local cache'
+            }
+          >
+            {isFirebaseConnected ? (
+              <>
+                <Cloud className="w-3.5 h-3.5 text-sky-600 animate-pulse" />
+                <span className="hidden sm:inline">Database Live</span>
+              </>
+            ) : (
+              <>
+                <CloudOff className="w-3.5 h-3.5 text-amber-600" />
+                <span className="hidden sm:inline">Local Cache</span>
+              </>
+            )}
+          </div>
+
           {/* Online/Offline status */}
           <button
             onClick={() => setIsOnline(!isOnline)}

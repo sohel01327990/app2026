@@ -25,6 +25,7 @@ import {
   INITIAL_INVOICES,
   INITIAL_CUSTOMER_TRANSACTIONS,
 } from '../data/initialData';
+import { FirebaseSyncService } from './firebaseSync';
 
 const KEYS = {
   SETTINGS: 'allnoor_settings_v3',
@@ -198,6 +199,9 @@ export const StorageService = {
     };
     const updated = [newLog, ...logs].slice(0, 500);
     this.saveAuditLogs(updated);
+    try {
+      FirebaseSyncService.saveAuditLog(newLog).catch(() => {});
+    } catch {}
     return newLog;
   },
 

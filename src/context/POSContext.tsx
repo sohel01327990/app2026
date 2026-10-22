@@ -258,7 +258,22 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsFirebaseConnected(connected);
     });
 
-    const unsub = FirebaseSyncService.listenToCompanySettings((cloudSettings) => {
+    // Auto-seed initial store catalog to Firestore if database is clean/empty
+    FirebaseSyncService.seedInitialDataIfEmpty({
+      settings: StorageService.getCompanySettings(),
+      categories: StorageService.getCategories(),
+      products: StorageService.getProducts(),
+      roles: StorageService.getRoles(),
+      users: StorageService.getUsers(),
+      customers: StorageService.getCustomers(),
+      suppliers: StorageService.getSuppliers(),
+      expenses: StorageService.getExpenses(),
+      invoices: StorageService.getInvoices(),
+      customerTransactions: StorageService.getCustomerTransactions(),
+    }).catch(console.warn);
+
+    // Setup real-time Firestore listeners for all modules across all devices
+    const unsubSettings = FirebaseSyncService.listenToCompanySettings((cloudSettings) => {
       if (cloudSettings && cloudSettings.businessName) {
         setSettings((prev) => ({
           ...prev,
@@ -268,7 +283,97 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    return () => unsub();
+    const unsubCategories = FirebaseSyncService.listenToCategories((cloudCategories) => {
+      if (cloudCategories && cloudCategories.length > 0) {
+        setCategories(cloudCategories);
+        StorageService.saveCategories(cloudCategories);
+      }
+    });
+
+    const unsubProducts = FirebaseSyncService.listenToProducts((cloudProducts) => {
+      if (cloudProducts) {
+        setProducts(cloudProducts);
+        StorageService.saveProducts(cloudProducts);
+      }
+    });
+
+    const unsubCustomers = FirebaseSyncService.listenToCustomers((cloudCustomers) => {
+      if (cloudCustomers) {
+        setCustomers(cloudCustomers);
+        StorageService.saveCustomers(cloudCustomers);
+      }
+    });
+
+    const unsubInvoices = FirebaseSyncService.listenToInvoices((cloudInvoices) => {
+      if (cloudInvoices) {
+        setInvoices(cloudInvoices);
+        StorageService.saveInvoices(cloudInvoices);
+      }
+    });
+
+    const unsubTransactions = FirebaseSyncService.listenToCustomerTransactions((cloudTx) => {
+      if (cloudTx) {
+        setCustomerTransactions(cloudTx);
+        StorageService.saveCustomerTransactions(cloudTx);
+      }
+    });
+
+    const unsubExpenses = FirebaseSyncService.listenToExpenses((cloudExpenses) => {
+      if (cloudExpenses) {
+        setExpenses(cloudExpenses);
+        StorageService.saveExpenses(cloudExpenses);
+      }
+    });
+
+    const unsubSuppliers = FirebaseSyncService.listenToSuppliers((cloudSuppliers) => {
+      if (cloudSuppliers) {
+        setSuppliers(cloudSuppliers);
+        StorageService.saveSuppliers(cloudSuppliers);
+      }
+    });
+
+    const unsubRoles = FirebaseSyncService.listenToRoles((cloudRoles) => {
+      if (cloudRoles && cloudRoles.length > 0) {
+        setRoles(cloudRoles);
+        StorageService.saveRoles(cloudRoles);
+      }
+    });
+
+    const unsubUsers = FirebaseSyncService.listenToUsers((cloudUsers) => {
+      if (cloudUsers && cloudUsers.length > 0) {
+        setUsers(cloudUsers);
+        StorageService.saveUsers(cloudUsers);
+      }
+    });
+
+    const unsubAdjustments = FirebaseSyncService.listenToStockAdjustments((cloudAdjs) => {
+      if (cloudAdjs) {
+        setStockAdjustments(cloudAdjs);
+        StorageService.saveStockAdjustments(cloudAdjs);
+      }
+    });
+
+    const unsubLogs = FirebaseSyncService.listenToAuditLogs((cloudLogs) => {
+      if (cloudLogs) {
+        setAuditLogs(cloudLogs);
+        StorageService.saveAuditLogs(cloudLogs);
+      }
+    });
+
+    return () => {
+      unsubSettings();
+      unsubCategories();
+      unsubProducts();
+      unsubCustomers();
+      unsubInvoices();
+      unsubTransactions();
+      unsubExpenses();
+      unsubSuppliers();
+      unsubRoles();
+      unsubUsers();
+      unsubAdjustments();
+      unsubLogs();
+    };
   }, []);
 
   useEffect(() => {
@@ -414,6 +519,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = [...roles, newRole];
     setRoles(updated);
     StorageService.saveRoles(updated);
+    FirebaseSyncService.saveRole(newRole).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -429,6 +535,10 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = roles.map((r) => (r.id === id ? { ...r, ...updates } : r));
     setRoles(updated);
     StorageService.saveRoles(updated);
+    const target = updated.find((r) => r.id === id);
+    if (target) {
+      FirebaseSyncService.saveRole(target).catch(console.warn);
+    }
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -448,6 +558,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = roles.filter((r) => r.id !== id);
     setRoles(updated);
     StorageService.saveRoles(updated);
+    FirebaseSyncService.deleteRole(id).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -688,6 +799,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = users.filter((u) => u.id !== id);
     setUsers(updated);
     StorageService.saveUsers(updated);
+    FirebaseSyncService.deleteUser(id).catch(console.warn);
     return true;
   };
 
@@ -1074,6 +1186,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedAdjs = [adj, ...stockAdjustments];
     setStockAdjustments(updatedAdjs);
     StorageService.saveStockAdjustments(updatedAdjs);
+    FirebaseSyncService.saveStockAdjustment(adj).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1099,6 +1212,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = [newCustomer, ...customers];
     setCustomers(updated);
     StorageService.saveCustomers(updated);
+    FirebaseSyncService.saveCustomer(newCustomer).catch(console.warn);
     return newCustomer;
   };
 
@@ -1106,12 +1220,17 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = customers.map((c) => (c.id === id ? { ...c, ...updates } : c));
     setCustomers(updated);
     StorageService.saveCustomers(updated);
+    const target = updated.find((c) => c.id === id);
+    if (target) {
+      FirebaseSyncService.saveCustomer(target).catch(console.warn);
+    }
   };
 
   const deleteCustomer = (id: string) => {
     const updated = customers.filter((c) => c.id !== id);
     setCustomers(updated);
     StorageService.saveCustomers(updated);
+    FirebaseSyncService.deleteCustomer(id).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1127,6 +1246,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = customerTransactions.filter((tx) => tx.id !== id);
     setCustomerTransactions(updated);
     StorageService.saveCustomerTransactions(updated);
+    FirebaseSyncService.deleteCustomerTransaction(id).catch(console.warn);
   };
 
   // Requirement 7 & 8: Bulletproof Due Receive logic
@@ -1157,6 +1277,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     setCustomers(nextCustomers);
     StorageService.saveCustomers(nextCustomers);
+    const targetCust = nextCustomers.find((c) => c.id === customerId);
+    if (targetCust) FirebaseSyncService.saveCustomer(targetCust).catch(console.warn);
 
     // Update invoice(s)
     let updatedInvoicesList = [...invoices];
@@ -1181,6 +1303,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       setInvoices(updatedInvoicesList);
       StorageService.saveInvoices(updatedInvoicesList);
+      const targetInv = updatedInvoicesList.find((i) => i.id === invoiceId);
+      if (targetInv) FirebaseSyncService.saveInvoice(targetInv).catch(console.warn);
     } else {
       let remToDeduct = amount;
       let invoicesChanged = false;
@@ -1214,6 +1338,10 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (invoicesChanged) {
           setInvoices(updatedInvoicesList);
           StorageService.saveInvoices(updatedInvoicesList);
+          sortedCustomerInvoices.forEach((inv) => {
+            const fresh = updatedInvoicesList.find((i) => i.id === inv.id);
+            if (fresh) FirebaseSyncService.saveInvoice(fresh).catch(console.warn);
+          });
         }
       }
     }
@@ -1243,6 +1371,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     StorageService.addCustomerTransaction(newTx);
     setCustomerTransactions((prev) => [newTx, ...prev]);
+    FirebaseSyncService.saveCustomerTransaction(newTx).catch(console.warn);
 
     StorageService.logAction(
       currentUser.id,
@@ -1300,6 +1429,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     StorageService.addCustomerTransaction(newTx);
     setCustomerTransactions((prev) => [newTx, ...prev]);
+    FirebaseSyncService.saveCustomerTransaction(newTx).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1318,12 +1448,14 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = [...suppliers, newSup];
     setSuppliers(updated);
     StorageService.saveSuppliers(updated);
+    FirebaseSyncService.saveSupplier(newSup).catch(console.warn);
   };
 
   const deleteSupplier = (id: string) => {
     const updated = suppliers.filter((s) => s.id !== id);
     setSuppliers(updated);
     StorageService.saveSuppliers(updated);
+    FirebaseSyncService.deleteSupplier(id).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1347,6 +1479,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = suppliers.map((s) => (s.id === supplierId ? { ...s, balancePayable: newBalance } : s));
     setSuppliers(updated);
     StorageService.saveSuppliers(updated);
+    const targetSup = updated.find((s) => s.id === supplierId);
+    if (targetSup) FirebaseSyncService.saveSupplier(targetSup).catch(console.warn);
 
     const exp: Expense = {
       id: `exp_${Date.now()}`,
@@ -1361,6 +1495,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedExp = [exp, ...expenses];
     setExpenses(updatedExp);
     StorageService.saveExpenses(updatedExp);
+    FirebaseSyncService.saveExpense(exp).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1381,6 +1516,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = [newExp, ...expenses];
     setExpenses(updated);
     StorageService.saveExpenses(updated);
+    FirebaseSyncService.saveExpense(newExp).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1396,6 +1532,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = expenses.filter((e) => e.id !== id);
     setExpenses(updated);
     StorageService.saveExpenses(updated);
+    FirebaseSyncService.deleteExpense(id).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1598,6 +1735,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       StorageService.addCustomerTransaction(saleTx);
       setCustomerTransactions((prev) => [saleTx, ...prev]);
+      FirebaseSyncService.saveCustomerTransaction(saleTx).catch(console.warn);
     } else if (customerInfo.customerId) {
       const cust = customers.find((c) => c.id === customerInfo.customerId);
       if (cust) {
@@ -1610,6 +1748,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedInvoices = [newInvoice, ...invoices];
     setInvoices(updatedInvoices);
     StorageService.saveInvoices(updatedInvoices);
+    FirebaseSyncService.saveInvoice(newInvoice).catch(console.warn);
+
+    // Sync updated stock levels to Firestore for all sold items
+    invoiceItems.forEach((it) => {
+      const prod = updatedProducts.find((p) => p.id === it.productId);
+      if (prod) FirebaseSyncService.saveProduct(prod).catch(console.warn);
+    });
 
     StorageService.logAction(
       currentUser.id,
@@ -1693,6 +1838,14 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     setInvoices(updatedInvoices);
     StorageService.saveInvoices(updatedInvoices);
+    const retTarget = updatedInvoices.find((inv) => inv.id === invoiceId);
+    if (retTarget) FirebaseSyncService.saveInvoice(retTarget).catch(console.warn);
+
+    // Sync restored stock to Firestore
+    returnItems.forEach((ret) => {
+      const prod = updatedProducts.find((p) => p.id === ret.productId);
+      if (prod) FirebaseSyncService.saveProduct(prod).catch(console.warn);
+    });
 
     if (invoice.customerId) {
       const cust = customers.find((c) => c.id === invoice.customerId);
@@ -1724,6 +1877,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         StorageService.addCustomerTransaction(returnTx);
         setCustomerTransactions((prev) => [returnTx, ...prev]);
+        FirebaseSyncService.saveCustomerTransaction(returnTx).catch(console.warn);
       }
     }
 
@@ -1756,6 +1910,12 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProducts(updatedProducts);
     StorageService.saveProducts(updatedProducts);
 
+    // Sync restored stock to Firestore
+    invoice.items.forEach((it) => {
+      const prod = updatedProducts.find((p) => p.id === it.productId);
+      if (prod) FirebaseSyncService.saveProduct(prod).catch(console.warn);
+    });
+
     if (invoice.dueAmount > 0 && invoice.customerId) {
       const cust = customers.find((c) => c.id === invoice.customerId);
       if (cust) {
@@ -1771,6 +1931,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     setInvoices(updatedInvoices);
     StorageService.saveInvoices(updatedInvoices);
+    const cancelTarget = updatedInvoices.find((inv) => inv.id === invoiceId);
+    if (cancelTarget) FirebaseSyncService.saveInvoice(cancelTarget).catch(console.warn);
+
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1787,6 +1950,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = invoices.filter((inv) => inv.id !== invoiceId);
     setInvoices(updated);
     StorageService.saveInvoices(updated);
+    FirebaseSyncService.deleteInvoice(invoiceId).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,

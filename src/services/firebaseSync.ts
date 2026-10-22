@@ -19,6 +19,7 @@ import {
   DynamicRole,
   User,
   StockAdjustment,
+  AuditLog,
 } from '../types';
 
 export interface CloudSyncStatus {
@@ -28,7 +29,13 @@ export interface CloudSyncStatus {
   freeTierStatus: 'Lifetime Free Active' | 'Offline Cache Mode' | 'Syncing';
 }
 
+function sanitizeId(id: string): string {
+  if (!id) return `id_${Date.now()}`;
+  return id.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
+}
+
 export const FirebaseSyncService = {
+  // ==================== SETTINGS ====================
   async saveCompanySettings(settings: CompanySettings): Promise<void> {
     const path = 'settings';
     try {
@@ -56,111 +63,421 @@ export const FirebaseSyncService = {
     );
   },
 
+  // ==================== CATEGORIES ====================
   async saveCategory(category: Category): Promise<void> {
     const path = 'categories';
+    const cleanId = sanitizeId(category.id);
     try {
-      await setDoc(doc(db, path, category.id), category);
+      await setDoc(doc(db, path, cleanId), { ...category, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${category.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
   async deleteCategory(categoryId: string): Promise<void> {
     const path = 'categories';
+    const cleanId = sanitizeId(categoryId);
     try {
-      await deleteDoc(doc(db, path, categoryId));
+      await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${path}/${categoryId}`);
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
     }
   },
 
+  listenToCategories(callback: (categories: Category[]) => void): () => void {
+    const path = 'categories';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as Category);
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== PRODUCTS ====================
   async saveProduct(product: Product): Promise<void> {
     const path = 'products';
+    const cleanId = sanitizeId(product.id);
     try {
-      await setDoc(doc(db, path, product.id), product);
+      await setDoc(doc(db, path, cleanId), { ...product, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${product.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
   async deleteProduct(productId: string): Promise<void> {
     const path = 'products';
+    const cleanId = sanitizeId(productId);
     try {
-      await deleteDoc(doc(db, path, productId));
+      await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${path}/${productId}`);
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
     }
   },
 
+  listenToProducts(callback: (products: Product[]) => void): () => void {
+    const path = 'products';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as Product);
+        // Sort products by creation or name
+        items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== CUSTOMERS ====================
   async saveCustomer(customer: Customer): Promise<void> {
     const path = 'customers';
+    const cleanId = sanitizeId(customer.id);
     try {
-      await setDoc(doc(db, path, customer.id), customer);
+      await setDoc(doc(db, path, cleanId), { ...customer, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${customer.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
+  async deleteCustomer(customerId: string): Promise<void> {
+    const path = 'customers';
+    const cleanId = sanitizeId(customerId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToCustomers(callback: (customers: Customer[]) => void): () => void {
+    const path = 'customers';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as Customer);
+        items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== INVOICES ====================
   async saveInvoice(invoice: Invoice): Promise<void> {
     const path = 'invoices';
+    const cleanId = sanitizeId(invoice.id);
     try {
-      await setDoc(doc(db, path, invoice.id), invoice);
+      await setDoc(doc(db, path, cleanId), { ...invoice, id: cleanId, synced: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${invoice.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
+  async deleteInvoice(invoiceId: string): Promise<void> {
+    const path = 'invoices';
+    const cleanId = sanitizeId(invoiceId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToInvoices(callback: (invoices: Invoice[]) => void): () => void {
+    const path = 'invoices';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as Invoice);
+        // Sort descending by sequenceNumber or createdAt
+        items.sort((a, b) => {
+          const timeA = new Date(a.createdAt || 0).getTime();
+          const timeB = new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== CUSTOMER TRANSACTIONS ====================
   async saveCustomerTransaction(tx: CustomerLedgerTransaction): Promise<void> {
     const path = 'customer_transactions';
+    const cleanId = sanitizeId(tx.id);
     try {
-      await setDoc(doc(db, path, tx.id), tx);
+      await setDoc(doc(db, path, cleanId), { ...tx, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${tx.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
+  async deleteCustomerTransaction(txId: string): Promise<void> {
+    const path = 'customer_transactions';
+    const cleanId = sanitizeId(txId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToCustomerTransactions(callback: (txs: CustomerLedgerTransaction[]) => void): () => void {
+    const path = 'customer_transactions';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as CustomerLedgerTransaction);
+        items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== EXPENSES ====================
   async saveExpense(expense: Expense): Promise<void> {
     const path = 'expenses';
+    const cleanId = sanitizeId(expense.id);
     try {
-      await setDoc(doc(db, path, expense.id), expense);
+      await setDoc(doc(db, path, cleanId), { ...expense, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${expense.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
+  async deleteExpense(expenseId: string): Promise<void> {
+    const path = 'expenses';
+    const cleanId = sanitizeId(expenseId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToExpenses(callback: (expenses: Expense[]) => void): () => void {
+    const path = 'expenses';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as Expense);
+        items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== SUPPLIERS ====================
   async saveSupplier(supplier: Supplier): Promise<void> {
     const path = 'suppliers';
+    const cleanId = sanitizeId(supplier.id);
     try {
-      await setDoc(doc(db, path, supplier.id), supplier);
+      await setDoc(doc(db, path, cleanId), { ...supplier, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${supplier.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
+  async deleteSupplier(supplierId: string): Promise<void> {
+    const path = 'suppliers';
+    const cleanId = sanitizeId(supplierId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToSuppliers(callback: (suppliers: Supplier[]) => void): () => void {
+    const path = 'suppliers';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as Supplier);
+        items.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== ROLES ====================
   async saveRole(role: DynamicRole): Promise<void> {
     const path = 'roles';
+    const cleanId = sanitizeId(role.id);
     try {
-      await setDoc(doc(db, path, role.id), role);
+      await setDoc(doc(db, path, cleanId), { ...role, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${role.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
+  async deleteRole(roleId: string): Promise<void> {
+    const path = 'roles';
+    const cleanId = sanitizeId(roleId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToRoles(callback: (roles: DynamicRole[]) => void): () => void {
+    const path = 'roles';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as DynamicRole);
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== USERS ====================
   async saveUser(user: User): Promise<void> {
     const path = 'users';
+    const cleanId = sanitizeId(user.id);
     try {
-      await setDoc(doc(db, path, user.id), user);
+      await setDoc(doc(db, path, cleanId), { ...user, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${user.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
   },
 
+  async deleteUser(userId: string): Promise<void> {
+    const path = 'users';
+    const cleanId = sanitizeId(userId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToUsers(callback: (users: User[]) => void): () => void {
+    const path = 'users';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as User);
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== STOCK ADJUSTMENTS ====================
   async saveStockAdjustment(adj: StockAdjustment): Promise<void> {
     const path = 'stock_adjustments';
+    const cleanId = sanitizeId(adj.id);
     try {
-      await setDoc(doc(db, path, adj.id), adj);
+      await setDoc(doc(db, path, cleanId), { ...adj, id: cleanId });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${adj.id}`);
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
+    }
+  },
+
+  async deleteStockAdjustment(adjId: string): Promise<void> {
+    const path = 'stock_adjustments';
+    const cleanId = sanitizeId(adjId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToStockAdjustments(callback: (adjs: StockAdjustment[]) => void): () => void {
+    const path = 'stock_adjustments';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as StockAdjustment);
+        items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== AUDIT LOGS ====================
+  async saveAuditLog(log: AuditLog): Promise<void> {
+    const path = 'audit_logs';
+    const cleanId = sanitizeId(log.id);
+    try {
+      await setDoc(doc(db, path, cleanId), { ...log, id: cleanId });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToAuditLogs(callback: (logs: AuditLog[]) => void): () => void {
+    const path = 'audit_logs';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as AuditLog);
+        items.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+        callback(items.slice(0, 500));
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== BULK SEED & SYNC ====================
+  async seedInitialDataIfEmpty(data: {
+    settings: CompanySettings;
+    categories: Category[];
+    products: Product[];
+    roles: DynamicRole[];
+    users: User[];
+    customers: Customer[];
+    suppliers: Supplier[];
+    expenses: Expense[];
+    invoices: Invoice[];
+    customerTransactions: CustomerLedgerTransaction[];
+  }): Promise<boolean> {
+    try {
+      const snapProd = await getDocs(collection(db, 'products'));
+      // If products collection is already populated, do not overwrite
+      if (!snapProd.empty) {
+        return false;
+      }
+
+      console.info('Firestore is clean/empty. Seeding initial store database to cloud...');
+      await this.pushFullStoreToCloud(data);
+      return true;
+    } catch (err) {
+      console.warn('Initial seeding check error (using local data):', err);
+      return false;
     }
   },
 
@@ -234,6 +551,9 @@ export const FirebaseSyncService = {
     customerTransactions?: CustomerLedgerTransaction[];
     expenses?: Expense[];
     suppliers?: Supplier[];
+    roles?: DynamicRole[];
+    users?: User[];
+    stockAdjustments?: StockAdjustment[];
   }> {
     const result: {
       settings?: CompanySettings;
@@ -244,6 +564,9 @@ export const FirebaseSyncService = {
       customerTransactions?: CustomerLedgerTransaction[];
       expenses?: Expense[];
       suppliers?: Supplier[];
+      roles?: DynamicRole[];
+      users?: User[];
+      stockAdjustments?: StockAdjustment[];
     } = {};
 
     try {
@@ -282,6 +605,16 @@ export const FirebaseSyncService = {
       const snapSuppliers = await getDocs(collection(db, 'suppliers'));
       if (!snapSuppliers.empty) {
         result.suppliers = snapSuppliers.docs.map((d) => d.data() as Supplier);
+      }
+
+      const snapRoles = await getDocs(collection(db, 'roles'));
+      if (!snapRoles.empty) {
+        result.roles = snapRoles.docs.map((d) => d.data() as DynamicRole);
+      }
+
+      const snapUsers = await getDocs(collection(db, 'users'));
+      if (!snapUsers.empty) {
+        result.users = snapUsers.docs.map((d) => d.data() as User);
       }
     } catch (err) {
       console.warn('Error pulling full store from cloud:', err);
