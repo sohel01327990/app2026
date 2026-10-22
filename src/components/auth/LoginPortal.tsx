@@ -82,6 +82,7 @@ export const LoginPortal: React.FC = () => {
     }, 250);
   };
 
+
   const handleSendOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setRecoverError('');
@@ -212,6 +213,8 @@ export const LoginPortal: React.FC = () => {
               Enter your User ID and Password to sign in
             </p>
           </div>
+
+
 
           {/* Error Message */}
           {errorMessage && (

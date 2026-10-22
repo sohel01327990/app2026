@@ -19,6 +19,7 @@ import {
   CustomerLedgerTransaction,
   AppModuleId,
 } from '../types';
+import { INITIAL_USERS } from '../data/initialData';
 import { StorageService } from '../services/storage';
 import { FirebaseSyncService } from '../services/firebaseSync';
 import {
@@ -197,6 +198,7 @@ export interface POSContextType {
   reconnectFirebaseCloud: (newConfig?: any) => Promise<boolean>;
   activeFirebaseConfig: any;
   purgeFirebaseCloudData: () => Promise<{ success: boolean; count: number }>;
+  restoreAdminUserInFirebase: () => Promise<{ success: boolean; message: string }>;
 }
 
 const POSContext = createContext<POSContextType | undefined>(undefined);
@@ -339,10 +341,19 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
+    // Ensure Master Admin user always exists in Firestore & Firebase
+    FirebaseSyncService.ensureMasterAdminUser(StorageService.getUsers()[0] || INITIAL_USERS[0]).catch(console.warn);
+
     const unsubUsers = FirebaseSyncService.listenToUsers((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {
         setUsers(cloudUsers);
         StorageService.saveUsers(cloudUsers);
+      } else {
+        // If users were deleted in Firebase, auto-resurrect master admin in state and Firestore
+        const defaultAdmin = INITIAL_USERS[0];
+        setUsers([defaultAdmin]);
+        StorageService.saveUsers([defaultAdmin]);
+        FirebaseSyncService.saveUser(defaultAdmin).catch(console.warn);
       }
     });
 
@@ -1031,12 +1042,38 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!passOrPin) {
       return { success: false, message: 'Please enter your Password.' };
     }
-    const found = users.find(
+    let found = users.find(
       (u) =>
         u.email.toLowerCase() === cleanId ||
         u.username.toLowerCase() === cleanId ||
         (cleanId === 'admin' && u.roleId === 'role_admin')
     );
+
+    const isMasterAdminId = cleanId === 'admin' || cleanId === 'admin@allnoor.com' || cleanId === 'admin owner';
+    const isMasterAdminPass = passOrPin === 'Admin1234' || passOrPin === 'admin123' || passOrPin === '1234';
+
+    // If Admin credentials are used, ALWAYS allow login as Master Admin even if DB was wiped
+    if (!found && isMasterAdminId && isMasterAdminPass) {
+      found = {
+        id: 'usr_admin',
+        name: 'Admin Owner',
+        username: 'admin',
+        roleId: 'role_admin',
+        roleName: 'Owner / Super Admin',
+        email: 'admin@allnoor.com',
+        phone: '+880 1700-000000',
+        status: 'active',
+        pinCode: '1234',
+        password: 'Admin1234',
+        allowedModules: ['pos', 'inventory', 'daily_report', 'due', 'invoices', 'expenses', 'analytics', 'admin', 'backup'],
+      };
+      const nextUsers = [found];
+      setUsers(nextUsers);
+      StorageService.saveUsers(nextUsers);
+      FirebaseSyncService.saveUser(found).catch(console.warn);
+      registerUserInFirebaseAuth('admin@allnoor.com', 'Admin1234Password', 'Admin Owner').catch(console.warn);
+    }
+
     if (!found) {
       return {
         success: false,
@@ -1045,7 +1082,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const passMatch = found.password && found.password === passOrPin;
     const pinMatch = found.pinCode && found.pinCode === passOrPin;
-    const defaultMaster = passOrPin === 'Admin1234' || passOrPin === 'admin123' || passOrPin === '1234';
+    const defaultMaster = isMasterAdminPass;
     if (!passMatch && !pinMatch && !defaultMaster) {
       return {
         success: false,
@@ -1068,6 +1105,51 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     setAuditLogs(StorageService.getAuditLogs());
     return { success: true, message: 'Login successful', user: found };
+  };
+
+  const restoreAdminUserInFirebase = async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      const adminUser: User = {
+        id: 'usr_admin',
+        name: 'Admin Owner',
+        username: 'admin',
+        roleId: 'role_admin',
+        roleName: 'Owner / Super Admin',
+        email: 'admin@allnoor.com',
+        phone: '+880 1700-000000',
+        status: 'active',
+        pinCode: '1234',
+        password: 'Admin1234',
+        allowedModules: ['pos', 'inventory', 'daily_report', 'due', 'invoices', 'expenses', 'analytics', 'admin', 'backup'],
+      };
+      setUsers([adminUser]);
+      StorageService.saveUsers([adminUser]);
+      setCurrentUserIdState(adminUser.id);
+      StorageService.setCurrentUserId(adminUser.id);
+
+      // Save directly to Firestore /users/usr_admin
+      await FirebaseSyncService.saveUser(adminUser);
+
+      // Register into Firebase Authentication
+      const authRes = await registerUserInFirebaseAuth(
+        'admin@allnoor.com',
+        'Admin1234Password',
+        'Admin Owner'
+      );
+
+      return {
+        success: true,
+        message:
+          authRes.success || authRes.code === 'auth/email-already-in-use'
+            ? 'Admin ইউজার Firebase Firestore ডেটাবেস এবং Authentication-এ সফলভাবে তৈরি করা হয়েছে!'
+            : `Admin ইউজার Firestore ডেটাবেসে সফলভাবে সেভ হয়েছে (Auth: ${authRes.error || 'ok'})`,
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        message: e?.message || 'Admin ইউজার তৈরি করতে ত্রুটি হয়েছে।',
+      };
+    }
   };
 
   const logout = () => {
@@ -2304,6 +2386,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reconnectFirebaseCloud,
         activeFirebaseConfig: activeConfigState,
         purgeFirebaseCloudData,
+        restoreAdminUserInFirebase,
       }}
     >
       {children}

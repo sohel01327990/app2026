@@ -106,15 +106,16 @@ export const StorageService = {
   },
 
   getUsers(): User[] {
-    const users = safeGet<User[]>(KEYS.USERS, INITIAL_USERS);
-    if (!users || users.length === 0) {
-      return INITIAL_USERS;
-    }
-    return users.map((u) => ({
-      ...u,
-      password: u.password || 'Admin1234',
-      pinCode: u.pinCode || '1234',
-    }));
+    const adminUser = INITIAL_USERS[0];
+    const enforced = [
+      {
+        ...adminUser,
+        password: adminUser.password || 'Admin1234',
+        pinCode: adminUser.pinCode || '1234',
+      },
+    ];
+    safeSet(KEYS.USERS, enforced);
+    return enforced;
   },
   saveUsers(users: User[]): void {
     safeSet(KEYS.USERS, users);

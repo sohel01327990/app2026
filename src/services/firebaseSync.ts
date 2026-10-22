@@ -376,6 +376,33 @@ export const FirebaseSyncService = {
     }
   },
 
+  async ensureMasterAdminUser(adminUser: User): Promise<void> {
+    const path = 'users';
+    try {
+      const snap = await getDocs(collection(db, path));
+      const hasAdmin = snap.docs.some((d) => {
+        const u = d.data() as User;
+        return u.id === 'usr_admin' || u.username === 'admin' || u.roleId === 'role_admin';
+      });
+      if (!hasAdmin) {
+        console.info('[FirebaseSync] Master Admin missing in Firestore, creating /users/usr_admin...');
+        await setDoc(doc(db, path, 'usr_admin'), {
+          ...adminUser,
+          id: 'usr_admin',
+          username: 'admin',
+          roleId: 'role_admin',
+          roleName: 'Owner / Super Admin',
+          email: adminUser.email || 'admin@allnoor.com',
+          password: 'Admin1234',
+          pinCode: '1234',
+          status: 'active',
+        });
+      }
+    } catch (e) {
+      console.warn('[FirebaseSync] Could not ensure master admin user:', e);
+    }
+  },
+
   listenToUsers(callback: (users: User[]) => void): () => void {
     const path = 'users';
     return onSnapshot(
