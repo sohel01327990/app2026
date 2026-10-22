@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #FEFAF3;
+    color: #0f172a;
+    overflow-x: hidden;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom subtle clean scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1ede4;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d6ccbe;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C49A45;
+}
+
+/* Hover style for product cards - turning card to #C49A45 on hover */
+.product-card-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.product-card-hover:hover {
+  background-color: #C49A45 !important;
+  color: #ffffff !important;
+  border-color: #C49A45 !important;
+}
+
+.product-card-hover:hover * {
+  color: #ffffff !important;
+}
+
+.product-card-hover:hover .badge-invert {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+/* Intelligent High-Fidelity Print Styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  html, body {
+    background-color: #FFFFFF !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide app navigation, headers, sidebars, and control buttons */
+  header,
+  aside,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Flatten modal overlays and backdrops during print */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
+  .print-surface {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #FFFFFF !important;
+  }
+
+  #printable-invoice-area,
+  #printable-voucher-area {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .thermal-80mm {
+    width: 78mm !important;
+    max-width: 78mm !important;
+    margin: 0 auto !important;
+    padding: 2mm !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    font-family: monospace, monospace !important;
+    color: #000 !important;
+  }
+
+  .paper-a4 {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 auto !important;
+    padding: 12mm !important;
+    box-shadow: none !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+  }
+}

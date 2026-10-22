@@ -1,0 +1,260 @@
+{
+  "entities": {
+    "CompanySettings": {
+      "title": "CompanySettings",
+      "description": "Store configuration, opening balance, and appearance settings",
+      "type": "object",
+      "properties": {
+        "businessName": { "type": "string" },
+        "tagline": { "type": "string" },
+        "taxId": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "currencySymbol": { "type": "string" },
+        "footerTerms": { "type": "string" },
+        "minMarginPercent": { "type": "number" },
+        "maxCashierDiscountPercent": { "type": "number" },
+        "managerOverridePin": { "type": "string" },
+        "defaultWarehouse": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "openingCashBalance": { "type": "number" },
+        "loginBgUrl": { "type": "string" },
+        "estimatedCashInDrawer": { "type": "number" }
+      },
+      "required": ["businessName", "openingCashBalance"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product categories created and managed by Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Inventory items and materials in stock",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "barcode": { "type": "string" },
+        "category": { "type": "string" },
+        "unit": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "regularPrice": { "type": "number" },
+        "minSellingPrice": { "type": "number" },
+        "currentStock": { "type": "number" },
+        "minStockThreshold": { "type": "number" },
+        "warehouse": { "type": "string" },
+        "brand": { "type": "string" }
+      },
+      "required": ["id", "name", "costPrice", "regularPrice", "currentStock"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer profiles, credit limits, and outstanding dues",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "creditLimit": { "type": "number" },
+        "currentDue": { "type": "number" },
+        "totalPurchases": { "type": "number" }
+      },
+      "required": ["id", "name", "phone"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Sales invoices with up to 10-char IDs, split payments, and returns",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sequenceNumber": { "type": "number" },
+        "deviceId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "subtotal": { "type": "number" },
+        "discountAmount": { "type": "number" },
+        "vatTaxAmount": { "type": "number" },
+        "grandTotal": { "type": "number" },
+        "totalPaid": { "type": "number" },
+        "dueAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "cashierId": { "type": "string" },
+        "cashierName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "grandTotal", "totalPaid", "dueAmount", "status", "createdAt"]
+    },
+    "CustomerLedgerTransaction": {
+      "title": "CustomerLedgerTransaction",
+      "description": "Ledger entries for customer sales, due collections, refunds, and waivers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "balanceBefore": { "type": "number" },
+        "balanceAfter": { "type": "number" },
+        "date": { "type": "string" },
+        "explanation": { "type": "string" },
+        "voucherNumber": { "type": "string" },
+        "processedBy": { "type": "string" }
+      },
+      "required": ["id", "customerId", "amount", "date", "voucherNumber"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Store operational expenses deducted from accounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "description": { "type": "string" },
+        "paidVia": { "type": "string" },
+        "referenceNumber": { "type": "string" },
+        "recordedBy": { "type": "string" }
+      },
+      "required": ["id", "amount", "date", "description"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Wholesale vendors and material suppliers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyName": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "phone": { "type": "string" },
+        "category": { "type": "string" },
+        "balancePayable": { "type": "number" },
+        "paymentTerms": { "type": "string" }
+      },
+      "required": ["id", "companyName", "phone"]
+    },
+    "DynamicRole": {
+      "title": "DynamicRole",
+      "description": "Configurable system and user access roles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "isSystem": { "type": "boolean" }
+      },
+      "required": ["id", "name"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Store operators and staff profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "roleId": { "type": "string" },
+        "roleName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "username", "roleId"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable compliance and security audit logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "details": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "action", "userName"]
+    },
+    "StockAdjustment": {
+      "title": "StockAdjustment",
+      "description": "Stock audit, breakage, damage, and inward inventory records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "type": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "reason": { "type": "string" },
+        "date": { "type": "string" },
+        "loggedBy": { "type": "string" }
+      },
+      "required": ["id", "productId", "quantity", "date"]
+    }
+  },
+  "firestore": {
+    "/settings/{settingId}": {
+      "schema": "CompanySettings",
+      "description": "Global store profile, opening balance, and login background image"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Store categories created and managed by Admin"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Inventory and yard items"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Store customer accounts with current dues"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Sales invoices with up to 10-char IDs and return tracking"
+    },
+    "/customer_transactions/{transactionId}": {
+      "schema": "CustomerLedgerTransaction",
+      "description": "Due collections, sales, and refund ledger records"
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Store operational expenses"
+    },
+    "/suppliers/{supplierId}": {
+      "schema": "Supplier",
+      "description": "Wholesale suppliers and payables"
+    },
+    "/roles/{roleId}": {
+      "schema": "DynamicRole",
+      "description": "User permission roles"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Store user accounts"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Audit trail entries"
+    },
+    "/stock_adjustments/{adjustmentId}": {
+      "schema": "StockAdjustment",
+      "description": "Inventory changes and adjustments"
+    }
+  }
+}

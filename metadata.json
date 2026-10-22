@@ -1,0 +1,6 @@
+{
+  "name": "All-Noor Building Materials POS & ERP",
+  "description": "Production-ready Web-Based POS & ERP System with Dynamic Categories, Daily Financial Reports, Strict Due Reconciliation, and Return Restock Accounting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
