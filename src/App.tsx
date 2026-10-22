@@ -15,6 +15,7 @@ import { BackupSyncModule } from './components/sync/BackupSyncModule';
 import { LoginPortal } from './components/auth/LoginPortal';
 import { Lock, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getUserEffectiveModules } from './types';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 const POSAppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('pos');
@@ -228,6 +229,7 @@ export default function App() {
   return (
     <POSProvider>
       <POSAppContent />
+      <SpeedInsights />
     </POSProvider>
   );
 }
