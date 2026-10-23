@@ -45,6 +45,7 @@ const customDbId = (firebaseConfig as any).firestoreDatabaseId;
 let firestoreInstance: any;
 try {
   firestoreInstance = initializeFirestore(app, {
+    ignoreUndefinedProperties: true,
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager(),
     }),

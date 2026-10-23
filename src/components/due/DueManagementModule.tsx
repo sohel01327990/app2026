@@ -30,10 +30,11 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
     receiveDuePayment,
     setSelectedCustomerIdForPOS,
     setActivePrintInvoice,
+    customerTransactions,
   } = usePOS();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'customer_dues' | 'invoice_dues'>('customer_dues');
+  const [activeTab, setActiveTab] = useState<'customer_dues' | 'all_customers' | 'invoice_dues' | 'vouchers'>('customer_dues');
 
   // Modals
   const [selectedCustForPayment, setSelectedCustForPayment] = useState<Customer | null>(null);
@@ -78,6 +79,18 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
     });
   }, [activeDueCustomers, searchQuery]);
 
+  const filteredAllCustomers = useMemo(() => {
+    return customers.filter((c) => {
+      const q = searchQuery.toLowerCase().trim();
+      return (
+        !q ||
+        c.name.toLowerCase().includes(q) ||
+        c.phone.includes(q) ||
+        c.address.toLowerCase().includes(q)
+      );
+    });
+  }, [customers, searchQuery]);
+
   const filteredDueInvoices = useMemo(() => {
     return activeDueInvoices.filter((inv) => {
       const q = searchQuery.toLowerCase().trim();
@@ -89,6 +102,19 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
       );
     });
   }, [activeDueInvoices, searchQuery]);
+
+  const filteredVouchers = useMemo(() => {
+    return (customerTransactions || []).filter((tx) => {
+      const q = searchQuery.toLowerCase().trim();
+      return (
+        !q ||
+        tx.customerName.toLowerCase().includes(q) ||
+        (tx.voucherNumber && tx.voucherNumber.toLowerCase().includes(q)) ||
+        (tx.reference && tx.reference.toLowerCase().includes(q)) ||
+        (tx.explanation && tx.explanation.toLowerCase().includes(q))
+      );
+    });
+  }, [customerTransactions, searchQuery]);
 
   // Open Receive Due Modal from Customer Dues
   const handleOpenReceiveDue = (cust: Customer) => {
@@ -280,22 +306,38 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
 
       {/* Tabs and Search */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex rounded-2xl bg-white p-1 border border-[#EADBCE] shadow-xs">
+        <div className="flex flex-wrap rounded-2xl bg-white p-1 border border-[#EADBCE] shadow-xs gap-1">
           <button
             onClick={() => setActiveTab('customer_dues')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'customer_dues' ? 'bg-[#C49A45] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Customer Dues ({activeDueCustomers.length})
           </button>
           <button
+            onClick={() => setActiveTab('all_customers')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'all_customers' ? 'bg-[#C49A45] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Customers ({customers.length})
+          </button>
+          <button
             onClick={() => setActiveTab('invoice_dues')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'invoice_dues' ? 'bg-[#C49A45] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Invoice Dues ({activeDueInvoices.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('vouchers')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'vouchers' ? 'bg-[#C49A45] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Vouchers ({customerTransactions.length})
           </button>
         </div>
 
@@ -303,7 +345,7 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search customer, phone..."
+            placeholder="Search customer, phone, voucher..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#C49A45] shadow-xs"
@@ -343,7 +385,6 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                     </td>
                     <td className="py-3 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        {/* Due Receive Button */}
                         <button
                           type="button"
                           onClick={() => handleOpenReceiveDue(c)}
@@ -377,6 +418,80 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                       <CheckCircle2 className="w-8 h-8 text-emerald-500/40 mx-auto mb-2" />
                       <p className="text-sm font-semibold text-slate-700">No customers with outstanding due</p>
                       <p className="text-xs text-slate-500 mt-0.5">All customer accounts have zero balance.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* All Customers View */}
+      {activeTab === 'all_customers' && (
+        <div className="rounded-3xl bg-white border border-[#EADBCE] overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
+                  <th className="py-3 px-4">Customer Name</th>
+                  <th className="py-3 px-4">Phone & Address</th>
+                  <th className="py-3 px-4 text-right">Total Purchases</th>
+                  <th className="py-3 px-4 text-right">Current Due</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {filteredAllCustomers.map((c) => (
+                  <tr key={c.id} className="hover:bg-[#FEFAF3] transition-colors">
+                    <td className="py-3 px-4">
+                      <span className="font-bold text-slate-900 block text-xs">{c.name}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="font-mono text-slate-800 block">{c.phone}</span>
+                      <span className="text-[10px] text-slate-500">{c.address}</span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-slate-600 tabular-nums">
+                      {settings.currencySymbol}{c.totalPurchases.toLocaleString()}
+                    </td>
+                    <td className={`py-3 px-4 text-right font-mono font-extrabold tabular-nums text-sm ${c.currentDue > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                      {settings.currencySymbol}{c.currentDue.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        {c.currentDue > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReceiveDue(c)}
+                            className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 shadow-xs cursor-pointer"
+                          >
+                            <ArrowDownLeft className="w-3.5 h-3.5" />
+                            <span>Due Receive</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleCreateNewInvoice(c)}
+                          className="px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-[#FEFAF3] hover:bg-[#ebd5ad]/50 text-slate-800 border border-[#EADBCE] cursor-pointer"
+                        >
+                          + New Sale
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomerToDelete(c)}
+                          className="p-1.5 text-xs rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 cursor-pointer"
+                          title="Delete customer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredAllCustomers.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-slate-400">
+                      No customer accounts found.
                     </td>
                   </tr>
                 )}
@@ -422,7 +537,6 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                     </td>
                     <td className="py-3 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        {/* Always available Due Receive button for invoice */}
                         <button
                           type="button"
                           onClick={() => handleOpenReceiveDueForInvoice(inv)}
@@ -447,6 +561,68 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400">
                       No invoices with due balances.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Vouchers / Transaction Ledger View */}
+      {activeTab === 'vouchers' && (
+        <div className="rounded-3xl bg-white border border-[#EADBCE] overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
+                  <th className="py-3 px-4">Voucher / ID</th>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Customer Name</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4 text-right">Amount</th>
+                  <th className="py-3 px-4">Narration / Explanation</th>
+                  <th className="py-3 px-4 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {filteredVouchers.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-[#FEFAF3] transition-colors">
+                    <td className="py-3 px-4 font-mono font-bold text-[#C49A45]">{tx.voucherNumber || tx.id}</td>
+                    <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{new Date(tx.date).toLocaleString()}</td>
+                    <td className="py-3 px-4 font-semibold text-slate-900">{tx.customerName}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                        tx.type === 'due_payment' ? 'bg-emerald-100 text-emerald-800' :
+                        tx.type === 'sale_invoice' ? 'bg-blue-100 text-blue-800' :
+                        'bg-amber-100 text-amber-800'
+                      }`}>
+                        {tx.type.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-extrabold text-slate-900 tabular-nums">
+                      {settings.currencySymbol}{tx.amount.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={tx.explanation}>
+                      {tx.explanation}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setActiveVoucher(tx)}
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center gap-1 mx-auto cursor-pointer"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-[#C49A45]" />
+                        <span>View Voucher</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredVouchers.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                      No payment vouchers recorded yet.
                     </td>
                   </tr>
                 )}

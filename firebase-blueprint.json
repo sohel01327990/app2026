@@ -205,6 +205,66 @@
         "loggedBy": { "type": "string" }
       },
       "required": ["id", "productId", "quantity", "date"]
+    },
+    "DailyFinancialReportRecord": {
+      "title": "DailyFinancialReportRecord",
+      "description": "Daily store financial reconciliation and revenue summaries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reportDate": { "type": "string" },
+        "dayGrossSales": { "type": "number" },
+        "dayNetIncome": { "type": "number" },
+        "dayTotalExpense": { "type": "number" },
+        "dayGrossProfit": { "type": "number" },
+        "dayNetProfit": { "type": "number" },
+        "dayTotalPaidCash": { "type": "number" },
+        "dayTotalDue": { "type": "number" },
+        "dayDuesCollectedCash": { "type": "number" },
+        "dayCashExpenses": { "type": "number" },
+        "dayCashInflow": { "type": "number" },
+        "dayCashOutflow": { "type": "number" },
+        "closingCash": { "type": "number" },
+        "invoicesCount": { "type": "number" },
+        "expensesCount": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "reportDate"]
+    },
+    "DueRecord": {
+      "title": "DueRecord",
+      "description": "Outstanding customer dues and credit receivables",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "currentDue": { "type": "number" },
+        "totalPurchases": { "type": "number" },
+        "status": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "customerId", "currentDue"]
+    },
+    "ProfitAnalyticsRecord": {
+      "title": "ProfitAnalyticsRecord",
+      "description": "Periodic and monthly profit intelligence summaries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "period": { "type": "string" },
+        "revenue": { "type": "number" },
+        "operatingExpenses": { "type": "number" },
+        "grossMargin": { "type": "number" },
+        "netProfit": { "type": "number" },
+        "netProfitMargin": { "type": "number" },
+        "netCashInflow": { "type": "number" },
+        "invoicesCount": { "type": "number" },
+        "expenseVouchersCount": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "period"]
     }
   },
   "firestore": {
@@ -255,6 +315,18 @@
     "/stock_adjustments/{adjustmentId}": {
       "schema": "StockAdjustment",
       "description": "Inventory changes and adjustments"
+    },
+    "/daily_financial_reports/{reportDate}": {
+      "schema": "DailyFinancialReportRecord",
+      "description": "Daily revenue, expenses, and cash drawer reconciliations"
+    },
+    "/due_management/{dueId}": {
+      "schema": "DueRecord",
+      "description": "Dedicated customer due records and receivable balances"
+    },
+    "/profit_analytics/{analyticsId}": {
+      "schema": "ProfitAnalyticsRecord",
+      "description": "Monthly and periodic profit intelligence metrics"
     }
   }
 }

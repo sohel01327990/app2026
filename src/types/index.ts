@@ -359,3 +359,50 @@ export interface AuditLog {
   deviceId: string;
   status: 'SUCCESS' | 'BLOCKED_GUARDRAIL' | 'OVERRIDE_APPROVED';
 }
+
+export interface DailyFinancialReportRecord {
+  id: string; // YYYY-MM-DD
+  reportDate: string;
+  dayGrossSales: number;
+  dayNetIncome: number;
+  dayTotalExpense: number;
+  dayGrossProfit: number;
+  dayNetProfit: number;
+  dayTotalPaidCash: number;
+  dayTotalDue: number;
+  dayDuesCollectedCash: number;
+  dayCashExpenses: number;
+  dayCashInflow: number;
+  dayCashOutflow: number;
+  closingCash: number;
+  invoicesCount: number;
+  expensesCount: number;
+  updatedAt: string;
+}
+
+export interface DueRecord {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  currentDue: number;
+  totalPurchases: number;
+  lastPaymentDate?: string;
+  lastPaymentAmount?: number;
+  status: 'pending' | 'cleared';
+  updatedAt: string;
+}
+
+export interface ProfitAnalyticsRecord {
+  id: string; // e.g. 'summary_current' or 'month_YYYY_MM'
+  period: string;
+  revenue: number;
+  operatingExpenses: number;
+  grossMargin: number;
+  netProfit: number;
+  netProfitMargin: number;
+  netCashInflow: number;
+  invoicesCount: number;
+  expenseVouchersCount: number;
+  updatedAt: string;
+}

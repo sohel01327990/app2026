@@ -109,15 +109,18 @@ export const StorageService = {
 
   getUsers(): User[] {
     const adminUser = INITIAL_USERS[0];
-    const enforced = [
-      {
-        ...adminUser,
-        password: adminUser.password || 'Admin1234',
-        pinCode: adminUser.pinCode || '1234',
-      },
-    ];
-    safeSet(KEYS.USERS, enforced);
-    return enforced;
+    const users = safeGet<User[]>(KEYS.USERS, INITIAL_USERS);
+    if (!users || users.length === 0) {
+      safeSet(KEYS.USERS, [adminUser]);
+      return [adminUser];
+    }
+    const hasAdmin = users.some((u) => u.id === 'usr_admin' || u.username === 'admin');
+    if (!hasAdmin) {
+      const merged = [adminUser, ...users];
+      safeSet(KEYS.USERS, merged);
+      return merged;
+    }
+    return users;
   },
   saveUsers(users: User[]): void {
     safeSet(KEYS.USERS, users);

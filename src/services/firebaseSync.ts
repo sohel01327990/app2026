@@ -20,6 +20,9 @@ import {
   User,
   StockAdjustment,
   AuditLog,
+  DailyFinancialReportRecord,
+  DueRecord,
+  ProfitAnalyticsRecord,
 } from '../types';
 
 export interface CloudSyncStatus {
@@ -27,6 +30,36 @@ export interface CloudSyncStatus {
   lastSyncedAt: string | null;
   pendingSyncCount: number;
   freeTierStatus: 'Lifetime Free Active' | 'Offline Cache Mode' | 'Syncing';
+}
+
+const recentlyDeletedIds = new Set<string>();
+
+export function markAsRecentlyDeleted(id: string) {
+  if (!id) return;
+  recentlyDeletedIds.add(id);
+  setTimeout(() => {
+    recentlyDeletedIds.delete(id);
+  }, 20000);
+}
+
+export function isRecentlyDeleted(id: string): boolean {
+  return recentlyDeletedIds.has(id);
+}
+
+export function cleanForFirestore<T>(data: T): any {
+  if (data === null || data === undefined) return null;
+  if (typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map((item) => cleanForFirestore(item));
+  }
+  const cleanObj: Record<string, any> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (val === undefined) {
+      continue; // completely drop undefined fields!
+    }
+    cleanObj[key] = cleanForFirestore(val);
+  }
+  return cleanObj;
 }
 
 function sanitizeId(id: string): string {
@@ -39,10 +72,11 @@ export const FirebaseSyncService = {
   async saveCompanySettings(settings: CompanySettings): Promise<void> {
     const path = 'settings';
     try {
-      await setDoc(doc(db, path, 'store_config'), {
+      const payload = cleanForFirestore({
         ...settings,
         updatedAt: new Date().toISOString(),
       });
+      await setDoc(doc(db, path, 'store_config'), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/store_config`);
     }
@@ -68,7 +102,8 @@ export const FirebaseSyncService = {
     const path = 'categories';
     const cleanId = sanitizeId(category.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...category, id: cleanId });
+      const payload = cleanForFirestore({ ...category, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -77,6 +112,8 @@ export const FirebaseSyncService = {
   async deleteCategory(categoryId: string): Promise<void> {
     const path = 'categories';
     const cleanId = sanitizeId(categoryId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(categoryId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -90,7 +127,6 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        // Clean out legacy default categories from cloud if found
         snapshot.docs.forEach((d) => {
           if (legacyCatIds.includes(d.id)) {
             deleteDoc(d.ref).catch(() => {});
@@ -98,7 +134,7 @@ export const FirebaseSyncService = {
         });
         const items = snapshot.docs
           .map((d) => d.data() as Category)
-          .filter((c) => !legacyCatIds.includes(c.id));
+          .filter((c) => !legacyCatIds.includes(c.id) && !isRecentlyDeleted(c.id));
         callback(items);
       },
       (error) => {
@@ -112,7 +148,8 @@ export const FirebaseSyncService = {
     const path = 'products';
     const cleanId = sanitizeId(product.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...product, id: cleanId });
+      const payload = cleanForFirestore({ ...product, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -121,6 +158,8 @@ export const FirebaseSyncService = {
   async deleteProduct(productId: string): Promise<void> {
     const path = 'products';
     const cleanId = sanitizeId(productId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(productId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -134,7 +173,6 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        // Clean out legacy default mock products from cloud if found
         snapshot.docs.forEach((d) => {
           if (legacyProdIds.includes(d.id)) {
             deleteDoc(d.ref).catch(() => {});
@@ -142,8 +180,7 @@ export const FirebaseSyncService = {
         });
         const items = snapshot.docs
           .map((d) => d.data() as Product)
-          .filter((p) => !legacyProdIds.includes(p.id));
-        // Sort products by creation or name
+          .filter((p) => !legacyProdIds.includes(p.id) && !isRecentlyDeleted(p.id));
         items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         callback(items);
       },
@@ -158,7 +195,8 @@ export const FirebaseSyncService = {
     const path = 'customers';
     const cleanId = sanitizeId(customer.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...customer, id: cleanId });
+      const payload = cleanForFirestore({ ...customer, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -167,6 +205,8 @@ export const FirebaseSyncService = {
   async deleteCustomer(customerId: string): Promise<void> {
     const path = 'customers';
     const cleanId = sanitizeId(customerId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(customerId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -186,7 +226,7 @@ export const FirebaseSyncService = {
         });
         const items = snapshot.docs
           .map((d) => d.data() as Customer)
-          .filter((c) => c.id !== 'cst_1');
+          .filter((c) => c.id !== 'cst_1' && !isRecentlyDeleted(c.id));
         items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         callback(items);
       },
@@ -201,7 +241,8 @@ export const FirebaseSyncService = {
     const path = 'invoices';
     const cleanId = sanitizeId(invoice.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...invoice, id: cleanId, synced: true });
+      const payload = cleanForFirestore({ ...invoice, id: cleanId, synced: true });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -210,6 +251,8 @@ export const FirebaseSyncService = {
   async deleteInvoice(invoiceId: string): Promise<void> {
     const path = 'invoices';
     const cleanId = sanitizeId(invoiceId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(invoiceId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -222,7 +265,9 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as Invoice);
+        const items = snapshot.docs
+          .map((d) => d.data() as Invoice)
+          .filter((i) => !isRecentlyDeleted(i.id));
         // Sort descending by sequenceNumber or createdAt
         items.sort((a, b) => {
           const timeA = new Date(a.createdAt || 0).getTime();
@@ -242,7 +287,8 @@ export const FirebaseSyncService = {
     const path = 'customer_transactions';
     const cleanId = sanitizeId(tx.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...tx, id: cleanId });
+      const payload = cleanForFirestore({ ...tx, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -251,6 +297,8 @@ export const FirebaseSyncService = {
   async deleteCustomerTransaction(txId: string): Promise<void> {
     const path = 'customer_transactions';
     const cleanId = sanitizeId(txId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(txId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -263,7 +311,9 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as CustomerLedgerTransaction);
+        const items = snapshot.docs
+          .map((d) => d.data() as CustomerLedgerTransaction)
+          .filter((t) => !isRecentlyDeleted(t.id));
         items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
         callback(items);
       },
@@ -278,7 +328,8 @@ export const FirebaseSyncService = {
     const path = 'expenses';
     const cleanId = sanitizeId(expense.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...expense, id: cleanId });
+      const payload = cleanForFirestore({ ...expense, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -287,6 +338,8 @@ export const FirebaseSyncService = {
   async deleteExpense(expenseId: string): Promise<void> {
     const path = 'expenses';
     const cleanId = sanitizeId(expenseId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(expenseId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -306,7 +359,7 @@ export const FirebaseSyncService = {
         });
         const items = snapshot.docs
           .map((d) => d.data() as Expense)
-          .filter((e) => e.id !== 'exp_1');
+          .filter((e) => e.id !== 'exp_1' && !isRecentlyDeleted(e.id));
         items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
         callback(items);
       },
@@ -321,7 +374,8 @@ export const FirebaseSyncService = {
     const path = 'suppliers';
     const cleanId = sanitizeId(supplier.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...supplier, id: cleanId });
+      const payload = cleanForFirestore({ ...supplier, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -330,6 +384,8 @@ export const FirebaseSyncService = {
   async deleteSupplier(supplierId: string): Promise<void> {
     const path = 'suppliers';
     const cleanId = sanitizeId(supplierId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(supplierId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -349,7 +405,7 @@ export const FirebaseSyncService = {
         });
         const items = snapshot.docs
           .map((d) => d.data() as Supplier)
-          .filter((s) => s.id !== 'sup_1');
+          .filter((s) => s.id !== 'sup_1' && !isRecentlyDeleted(s.id));
         items.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
         callback(items);
       },
@@ -364,7 +420,8 @@ export const FirebaseSyncService = {
     const path = 'roles';
     const cleanId = sanitizeId(role.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...role, id: cleanId });
+      const payload = cleanForFirestore({ ...role, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -373,6 +430,8 @@ export const FirebaseSyncService = {
   async deleteRole(roleId: string): Promise<void> {
     const path = 'roles';
     const cleanId = sanitizeId(roleId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(roleId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -385,7 +444,9 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as DynamicRole);
+        const items = snapshot.docs
+          .map((d) => d.data() as DynamicRole)
+          .filter((r) => !isRecentlyDeleted(r.id));
         callback(items);
       },
       (error) => {
@@ -399,7 +460,8 @@ export const FirebaseSyncService = {
     const path = 'users';
     const cleanId = sanitizeId(user.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...user, id: cleanId });
+      const payload = cleanForFirestore({ ...user, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -408,6 +470,8 @@ export const FirebaseSyncService = {
   async deleteUser(userId: string): Promise<void> {
     const path = 'users';
     const cleanId = sanitizeId(userId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(userId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -425,7 +489,7 @@ export const FirebaseSyncService = {
       });
       if (!hasAdmin) {
         console.info('[FirebaseSync] Master Admin missing in Firestore, creating /users/usr_admin...');
-        await setDoc(doc(db, path, 'usr_admin'), {
+        const payload = cleanForFirestore({
           ...adminUser,
           id: 'usr_admin',
           username: 'admin',
@@ -436,6 +500,7 @@ export const FirebaseSyncService = {
           pinCode: '1234',
           status: 'active',
         });
+        await setDoc(doc(db, path, 'usr_admin'), payload);
       }
     } catch (e) {
       console.warn('[FirebaseSync] Could not ensure master admin user:', e);
@@ -447,7 +512,9 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as User);
+        const items = snapshot.docs
+          .map((d) => d.data() as User)
+          .filter((u) => !isRecentlyDeleted(u.id));
         callback(items);
       },
       (error) => {
@@ -461,7 +528,8 @@ export const FirebaseSyncService = {
     const path = 'stock_adjustments';
     const cleanId = sanitizeId(adj.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...adj, id: cleanId });
+      const payload = cleanForFirestore({ ...adj, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -470,6 +538,8 @@ export const FirebaseSyncService = {
   async deleteStockAdjustment(adjId: string): Promise<void> {
     const path = 'stock_adjustments';
     const cleanId = sanitizeId(adjId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(adjId);
     try {
       await deleteDoc(doc(db, path, cleanId));
     } catch (error) {
@@ -482,7 +552,9 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as StockAdjustment);
+        const items = snapshot.docs
+          .map((d) => d.data() as StockAdjustment)
+          .filter((a) => !isRecentlyDeleted(a.id));
         items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
         callback(items);
       },
@@ -497,7 +569,8 @@ export const FirebaseSyncService = {
     const path = 'audit_logs';
     const cleanId = sanitizeId(log.id);
     try {
-      await setDoc(doc(db, path, cleanId), { ...log, id: cleanId });
+      const payload = cleanForFirestore({ ...log, id: cleanId });
+      await setDoc(doc(db, path, cleanId), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
     }
@@ -511,6 +584,112 @@ export const FirebaseSyncService = {
         const items = snapshot.docs.map((d) => d.data() as AuditLog);
         items.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
         callback(items.slice(0, 500));
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== DAILY FINANCIAL REPORTS ====================
+  async saveDailyFinancialReport(report: DailyFinancialReportRecord): Promise<void> {
+    const path = 'daily_financial_reports';
+    const cleanId = sanitizeId(report.id || report.reportDate);
+    try {
+      const payload = cleanForFirestore({
+        ...report,
+        id: cleanId,
+        updatedAt: new Date().toISOString(),
+      });
+      await setDoc(doc(db, path, cleanId), payload);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToDailyFinancialReports(callback: (reports: DailyFinancialReportRecord[]) => void): () => void {
+    const path = 'daily_financial_reports';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as DailyFinancialReportRecord);
+        items.sort((a, b) => (b.reportDate || '').localeCompare(a.reportDate || ''));
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== DUE MANAGEMENT (DEDICATED COLLECTION) ====================
+  async saveDueRecord(due: DueRecord): Promise<void> {
+    const path = 'due_management';
+    const cleanId = sanitizeId(due.id || due.customerId);
+    try {
+      const payload = cleanForFirestore({
+        ...due,
+        id: cleanId,
+        updatedAt: new Date().toISOString(),
+      });
+      await setDoc(doc(db, path, cleanId), payload);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
+    }
+  },
+
+  async deleteDueRecord(dueId: string): Promise<void> {
+    const path = 'due_management';
+    const cleanId = sanitizeId(dueId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(dueId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToDueRecords(callback: (dues: DueRecord[]) => void): () => void {
+    const path = 'due_management';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs
+          .map((d) => d.data() as DueRecord)
+          .filter((d) => !isRecentlyDeleted(d.id));
+        items.sort((a, b) => b.currentDue - a.currentDue);
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== PROFIT & ANALYTICS ====================
+  async saveProfitAnalytics(analytics: ProfitAnalyticsRecord): Promise<void> {
+    const path = 'profit_analytics';
+    const cleanId = sanitizeId(analytics.id || analytics.period);
+    try {
+      const payload = cleanForFirestore({
+        ...analytics,
+        id: cleanId,
+        updatedAt: new Date().toISOString(),
+      });
+      await setDoc(doc(db, path, cleanId), payload);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToProfitAnalytics(callback: (analyticsList: ProfitAnalyticsRecord[]) => void): () => void {
+    const path = 'profit_analytics';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => d.data() as ProfitAnalyticsRecord);
+        callback(items);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, path);
@@ -708,6 +887,9 @@ export const FirebaseSyncService = {
       'categories',
       'stock_adjustments',
       'audit_logs',
+      'daily_financial_reports',
+      'due_management',
+      'profit_analytics',
     ];
     let totalDeleted = 0;
     const purged: string[] = [];

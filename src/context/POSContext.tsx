@@ -18,6 +18,9 @@ import {
   Category,
   CustomerLedgerTransaction,
   AppModuleId,
+  DailyFinancialReportRecord,
+  DueRecord,
+  ProfitAnalyticsRecord,
 } from '../types';
 import { INITIAL_USERS } from '../data/initialData';
 import { StorageService } from '../services/storage';
@@ -199,6 +202,8 @@ export interface POSContextType {
   activeFirebaseConfig: any;
   purgeFirebaseCloudData: () => Promise<{ success: boolean; count: number }>;
   restoreAdminUserInFirebase: () => Promise<{ success: boolean; message: string }>;
+  syncDailyReportToFirestore: (targetDate?: string) => void;
+  syncProfitAnalyticsToFirestore: () => void;
 }
 
 const POSContext = createContext<POSContextType | undefined>(undefined);
@@ -283,7 +288,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }, 1500);
 
-    // Setup real-time Firestore listeners for all modules across all devices
+
+    // Setup real-time Firestore listeners for all modules across all devices with resilient bidirectional sync
     const unsubSettings = FirebaseSyncService.listenToCompanySettings((cloudSettings) => {
       if (cloudSettings && cloudSettings.businessName) {
         setSettings((prev) => ({
@@ -295,51 +301,135 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const unsubCategories = FirebaseSyncService.listenToCategories((cloudCategories) => {
-      if (cloudCategories && cloudCategories.length > 0) {
-        setCategories(cloudCategories);
-        StorageService.saveCategories(cloudCategories);
+      const localCats = StorageService.getCategories();
+      if (cloudCategories.length === 0) {
+        if (localCats.length > 0) {
+          localCats.forEach((c) => FirebaseSyncService.saveCategory(c).catch(console.warn));
+        }
+      } else {
+        const cloudIds = new Set(cloudCategories.map((c) => c.id));
+        const unsynced = localCats.filter((c) => !cloudIds.has(c.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach((c) => FirebaseSyncService.saveCategory(c).catch(console.warn));
+        }
+        const merged = [...cloudCategories, ...unsynced];
+        setCategories(merged);
+        StorageService.saveCategories(merged);
       }
     });
 
     const unsubProducts = FirebaseSyncService.listenToProducts((cloudProducts) => {
-      if (cloudProducts) {
-        setProducts(cloudProducts);
-        StorageService.saveProducts(cloudProducts);
+      const localProds = StorageService.getProducts();
+      if (cloudProducts.length === 0) {
+        if (localProds.length > 0) {
+          localProds.forEach((p) => FirebaseSyncService.saveProduct(p).catch(console.warn));
+        }
+      } else {
+        const cloudIds = new Set(cloudProducts.map((p) => p.id));
+        const unsynced = localProds.filter((p) => !cloudIds.has(p.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach((p) => FirebaseSyncService.saveProduct(p).catch(console.warn));
+        }
+        const merged = [...cloudProducts, ...unsynced];
+        merged.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        setProducts(merged);
+        StorageService.saveProducts(merged);
       }
     });
 
     const unsubCustomers = FirebaseSyncService.listenToCustomers((cloudCustomers) => {
-      if (cloudCustomers) {
-        setCustomers(cloudCustomers);
-        StorageService.saveCustomers(cloudCustomers);
+      const localCusts = StorageService.getCustomers();
+      if (cloudCustomers.length === 0) {
+        if (localCusts.length > 0) {
+          localCusts.forEach((c) => FirebaseSyncService.saveCustomer(c).catch(console.warn));
+        }
+      } else {
+        const cloudIds = new Set(cloudCustomers.map((c) => c.id));
+        const unsynced = localCusts.filter((c) => !cloudIds.has(c.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach((c) => FirebaseSyncService.saveCustomer(c).catch(console.warn));
+        }
+        const merged = [...cloudCustomers, ...unsynced];
+        merged.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        setCustomers(merged);
+        StorageService.saveCustomers(merged);
       }
     });
 
     const unsubInvoices = FirebaseSyncService.listenToInvoices((cloudInvoices) => {
-      if (cloudInvoices) {
-        setInvoices(cloudInvoices);
-        StorageService.saveInvoices(cloudInvoices);
+      const localInvoices = StorageService.getInvoices();
+      if (cloudInvoices.length === 0) {
+        if (localInvoices.length > 0) {
+          // Push existing local invoices to Firebase so they are never lost on reload
+          localInvoices.forEach((inv) => FirebaseSyncService.saveInvoice(inv).catch(console.warn));
+        }
+      } else {
+        const cloudIds = new Set(cloudInvoices.map((i) => i.id));
+        const unsynced = localInvoices.filter((i) => !cloudIds.has(i.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach((inv) => FirebaseSyncService.saveInvoice(inv).catch(console.warn));
+        }
+        const merged = [...cloudInvoices, ...unsynced];
+        merged.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setInvoices(merged);
+        StorageService.saveInvoices(merged);
       }
     });
 
     const unsubTransactions = FirebaseSyncService.listenToCustomerTransactions((cloudTx) => {
-      if (cloudTx) {
-        setCustomerTransactions(cloudTx);
-        StorageService.saveCustomerTransactions(cloudTx);
+      const localTx = StorageService.getCustomerTransactions();
+      if (cloudTx.length === 0) {
+        if (localTx.length > 0) {
+          localTx.forEach((tx) => FirebaseSyncService.saveCustomerTransaction(tx).catch(console.warn));
+        }
+      } else {
+        const cloudIds = new Set(cloudTx.map((t) => t.id));
+        const unsynced = localTx.filter((t) => !cloudIds.has(t.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach((tx) => FirebaseSyncService.saveCustomerTransaction(tx).catch(console.warn));
+        }
+        const merged = [...cloudTx, ...unsynced];
+        merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+        setCustomerTransactions(merged);
+        StorageService.saveCustomerTransactions(merged);
       }
     });
 
     const unsubExpenses = FirebaseSyncService.listenToExpenses((cloudExpenses) => {
-      if (cloudExpenses) {
-        setExpenses(cloudExpenses);
-        StorageService.saveExpenses(cloudExpenses);
+      const localExps = StorageService.getExpenses();
+      if (cloudExpenses.length === 0) {
+        if (localExps.length > 0) {
+          localExps.forEach((exp) => FirebaseSyncService.saveExpense(exp).catch(console.warn));
+        }
+      } else {
+        const cloudIds = new Set(cloudExpenses.map((e) => e.id));
+        const unsynced = localExps.filter((e) => !cloudIds.has(e.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach((exp) => FirebaseSyncService.saveExpense(exp).catch(console.warn));
+        }
+        const merged = [...cloudExpenses, ...unsynced];
+        merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+        setExpenses(merged);
+        StorageService.saveExpenses(merged);
       }
     });
 
     const unsubSuppliers = FirebaseSyncService.listenToSuppliers((cloudSuppliers) => {
-      if (cloudSuppliers) {
-        setSuppliers(cloudSuppliers);
-        StorageService.saveSuppliers(cloudSuppliers);
+      const localSups = StorageService.getSuppliers();
+      if (cloudSuppliers.length === 0) {
+        if (localSups.length > 0) {
+          localSups.forEach((s) => FirebaseSyncService.saveSupplier(s).catch(console.warn));
+        }
+      } else {
+        const cloudIds = new Set(cloudSuppliers.map((s) => s.id));
+        const unsynced = localSups.filter((s) => !cloudIds.has(s.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach((s) => FirebaseSyncService.saveSupplier(s).catch(console.warn));
+        }
+        const merged = [...cloudSuppliers, ...unsynced];
+        merged.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+        setSuppliers(merged);
+        StorageService.saveSuppliers(merged);
       }
     });
 
@@ -360,7 +450,6 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           FirebaseSyncService.saveUser(defaultAdmin).catch(console.warn);
         }
       } else {
-        // If users were deleted in Firebase, auto-resurrect master admin in state and Firestore
         const defaultAdmin = INITIAL_USERS[0];
         setUsers([defaultAdmin]);
         StorageService.saveUsers([defaultAdmin]);
@@ -369,21 +458,57 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const unsubAdjustments = FirebaseSyncService.listenToStockAdjustments((cloudAdjs) => {
-      if (cloudAdjs) {
-        setStockAdjustments(cloudAdjs);
-        StorageService.saveStockAdjustments(cloudAdjs);
+      const localAdjs = StorageService.getStockAdjustments();
+      if (cloudAdjs.length === 0) {
+        if (localAdjs.length > 0) {
+          localAdjs.forEach((a) => FirebaseSyncService.saveStockAdjustment(a).catch(console.warn));
+        }
+      } else {
+        const cloudIds = new Set(cloudAdjs.map((a) => a.id));
+        const unsynced = localAdjs.filter((a) => !cloudIds.has(a.id));
+        if (unsynced.length > 0) {
+          unsynced.forEach((a) => FirebaseSyncService.saveStockAdjustment(a).catch(console.warn));
+        }
+        const merged = [...cloudAdjs, ...unsynced];
+        setStockAdjustments(merged);
+        StorageService.saveStockAdjustments(merged);
       }
     });
 
     const unsubLogs = FirebaseSyncService.listenToAuditLogs((cloudLogs) => {
-      if (cloudLogs) {
+      if (cloudLogs && cloudLogs.length > 0) {
         setAuditLogs(cloudLogs);
         StorageService.saveAuditLogs(cloudLogs);
       }
     });
 
+    const unsubDailyReports = FirebaseSyncService.listenToDailyFinancialReports((_cloudReports) => {
+      // Keep daily financial reports collection connected & hot
+    });
+
+    const unsubDueRecords = FirebaseSyncService.listenToDueRecords((_cloudDues) => {
+      // Keep due management collection connected & hot
+    });
+
+    const unsubProfitAnalytics = FirebaseSyncService.listenToProfitAnalytics((_cloudAnalytics) => {
+      // Keep profit analytics collection connected & hot
+    });
+
+    // Seed/sync active daily report, dues, and profit analytics to Firestore on startup
+    const seedAnalyticsTimer = setTimeout(() => {
+      try {
+        syncDailyReportToFirestore();
+        syncProfitAnalyticsToFirestore();
+        const storedCusts = StorageService.getCustomers();
+        storedCusts.forEach((c) => syncDueRecordToFirestore(c));
+      } catch (e) {
+        // quiet fallback
+      }
+    }, 2500);
+
     return () => {
       clearTimeout(seedTimer);
+      clearTimeout(seedAnalyticsTimer);
       unsubSettings();
       unsubCategories();
       unsubProducts();
@@ -396,6 +521,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubUsers();
       unsubAdjustments();
       unsubLogs();
+      unsubDailyReports();
+      unsubDueRecords();
+      unsubProfitAnalytics();
     };
   }, []);
 
@@ -1307,6 +1435,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCustomers(updated);
     StorageService.saveCustomers(updated);
     FirebaseSyncService.saveCustomer(newCustomer).catch(console.warn);
+    syncDueRecordToFirestore(newCustomer);
     return newCustomer;
   };
 
@@ -1317,6 +1446,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = updated.find((c) => c.id === id);
     if (target) {
       FirebaseSyncService.saveCustomer(target).catch(console.warn);
+      syncDueRecordToFirestore(target);
     }
   };
 
@@ -1325,6 +1455,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCustomers(updated);
     StorageService.saveCustomers(updated);
     FirebaseSyncService.deleteCustomer(id).catch(console.warn);
+    FirebaseSyncService.deleteDueRecord(id).catch(console.warn);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1466,6 +1597,16 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     StorageService.addCustomerTransaction(newTx);
     setCustomerTransactions((prev) => [newTx, ...prev]);
     FirebaseSyncService.saveCustomerTransaction(newTx).catch(console.warn);
+
+    if (targetCust) {
+      syncDueRecordToFirestore(targetCust);
+    }
+    setTimeout(() => {
+      try {
+        syncDailyReportToFirestore();
+        syncProfitAnalyticsToFirestore();
+      } catch (e) {}
+    }, 100);
 
     StorageService.logAction(
       currentUser.id,
@@ -1611,6 +1752,12 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExpenses(updated);
     StorageService.saveExpenses(updated);
     FirebaseSyncService.saveExpense(newExp).catch(console.warn);
+    setTimeout(() => {
+      try {
+        syncDailyReportToFirestore();
+        syncProfitAnalyticsToFirestore();
+      } catch (e) {}
+    }, 100);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1627,6 +1774,12 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExpenses(updated);
     StorageService.saveExpenses(updated);
     FirebaseSyncService.deleteExpense(id).catch(console.warn);
+    setTimeout(() => {
+      try {
+        syncDailyReportToFirestore();
+        syncProfitAnalyticsToFirestore();
+      } catch (e) {}
+    }, 100);
     StorageService.logAction(
       currentUser.id,
       currentUser.name,
@@ -1765,13 +1918,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: invoiceId,
       sequenceNumber: seq,
       deviceId,
-      customerName: customerInfo.name || 'Walk-in Cash Customer',
-      customerPhone: customerInfo.phone || 'N/A',
+      customerName: customerInfo.name?.trim() || 'Walk-in Cash Customer',
+      customerPhone: customerInfo.phone?.trim() || 'N/A',
       customerId: customerInfo.customerId,
       items: invoiceItems,
       subtotal,
       discountAmount: totalDiscount,
-      discountReason,
+      discountReason: discountReason?.trim() || '',
       vatTaxAmount: actualVat,
       grandTotal,
       payments,
@@ -1780,9 +1933,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'completed',
       cashierId: currentUser.id,
       cashierName: currentUser.name,
-      overrideApprovedBy,
+      overrideApprovedBy: overrideApprovedBy || '',
       createdAt: new Date().toISOString(),
-      synced: isOnline,
+      synced: true,
       syncVersion: 1,
     };
 
@@ -1849,6 +2002,17 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const prod = updatedProducts.find((p) => p.id === it.productId);
       if (prod) FirebaseSyncService.saveProduct(prod).catch(console.warn);
     });
+
+    setTimeout(() => {
+      try {
+        syncDailyReportToFirestore();
+        syncProfitAnalyticsToFirestore();
+        if (customerInfo.customerId) {
+          const freshCust = StorageService.getCustomers().find((c) => c.id === customerInfo.customerId);
+          if (freshCust) syncDueRecordToFirestore(freshCust);
+        }
+      } catch (e) {}
+    }, 100);
 
     StorageService.logAction(
       currentUser.id,
@@ -2119,6 +2283,109 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cashRefunds,
       currentCashInDrawer,
     };
+  };
+
+  const syncDueRecordToFirestore = (customer: Customer) => {
+    try {
+      if (!customer || !customer.id) return;
+      const dueRecord: DueRecord = {
+        id: customer.id,
+        customerId: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        currentDue: customer.currentDue,
+        totalPurchases: customer.totalPurchases,
+        status: customer.currentDue > 0 ? 'pending' : 'cleared',
+        updatedAt: new Date().toISOString(),
+      };
+      FirebaseSyncService.saveDueRecord(dueRecord).catch(console.warn);
+    } catch (err) {
+      console.warn('Could not sync due record to Firestore:', err);
+    }
+  };
+
+  const syncDailyReportToFirestore = (targetDate?: string) => {
+    try {
+      const dateToSync = targetDate || new Date().toISOString().slice(0, 10);
+      const dayInvs = invoices.filter((i) => i.createdAt.startsWith(dateToSync) && i.status !== 'cancelled');
+      const dayExps = expenses.filter((e) => e.date.startsWith(dateToSync));
+      const dayGrossSales = dayInvs.reduce((sum, inv) => sum + inv.grandTotal, 0);
+      const dayReturnsTotal = dayInvs.reduce(
+        (sum, inv) => sum + (inv.returns?.reduce((s, r) => s + r.totalRefunded, 0) || 0),
+        0
+      );
+      const dayNetIncome = Math.max(0, dayGrossSales - dayReturnsTotal);
+      const dayTotalExpense = dayExps.reduce((sum, e) => sum + e.amount, 0);
+      const dayGrossProfit = dayInvs.reduce((sum, inv) => sum + getEffectiveInvoiceProfit(inv), 0);
+      const dayNetProfit = dayGrossProfit - dayTotalExpense;
+      const dayTotalPaidCash = dayInvs.reduce((sum, inv) => {
+        const cashPayments = inv.payments?.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amount, 0) || inv.totalPaid;
+        return sum + cashPayments;
+      }, 0);
+      const dayTotalDue = dayInvs.reduce((sum, inv) => sum + inv.dueAmount, 0);
+      const dayDuesCollectedCash = (customerTransactions || [])
+        .filter((tx) => tx.date.startsWith(dateToSync) && tx.type === 'due_payment')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      const dayCashExpenses = dayExps
+        .filter((e) => e.paidVia === 'cash' || !e.paidVia)
+        .reduce((sum, e) => sum + e.amount, 0);
+      const dayCashInflow = dayTotalPaidCash + dayDuesCollectedCash;
+      const dayCashOutflow = dayCashExpenses;
+      const opening = settings.openingCashBalance || 0;
+      const closingCash = opening + dayCashInflow - dayCashOutflow;
+
+      const reportRecord: DailyFinancialReportRecord = {
+        id: dateToSync,
+        reportDate: dateToSync,
+        dayGrossSales,
+        dayNetIncome,
+        dayTotalExpense,
+        dayGrossProfit,
+        dayNetProfit,
+        dayTotalPaidCash,
+        dayTotalDue,
+        dayDuesCollectedCash,
+        dayCashExpenses,
+        dayCashInflow,
+        dayCashOutflow,
+        closingCash,
+        invoicesCount: dayInvs.length,
+        expensesCount: dayExps.length,
+        updatedAt: new Date().toISOString(),
+      };
+      FirebaseSyncService.saveDailyFinancialReport(reportRecord).catch(console.warn);
+    } catch (err) {
+      console.warn('Could not sync daily financial report to Firestore:', err);
+    }
+  };
+
+  const syncProfitAnalyticsToFirestore = () => {
+    try {
+      const now = new Date();
+      const monthKey = `month_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const rev = getTotalEffectiveRevenue();
+      const prof = getTotalEffectiveNetProfit();
+      const expTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+      const margin = rev > 0 ? (prof / rev) * 100 : 0;
+      const drawer = getCashDrawerReconciliation();
+
+      const record: ProfitAnalyticsRecord = {
+        id: monthKey,
+        period: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+        revenue: rev,
+        operatingExpenses: expTotal,
+        grossMargin: prof + expTotal,
+        netProfit: prof,
+        netProfitMargin: Math.round(margin * 10) / 10,
+        netCashInflow: drawer.currentCashInDrawer,
+        invoicesCount: invoices.length,
+        expenseVouchersCount: expenses.length,
+        updatedAt: new Date().toISOString(),
+      };
+      FirebaseSyncService.saveProfitAnalytics(record).catch(console.warn);
+    } catch (err) {
+      console.warn('Could not sync profit analytics to Firestore:', err);
+    }
   };
 
   const syncNow = async (): Promise<{ synced: number; conflicts: number }> => {
@@ -2399,6 +2666,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeFirebaseConfig: activeConfigState,
         purgeFirebaseCloudData,
         restoreAdminUserInFirebase,
+        syncDailyReportToFirestore,
+        syncProfitAnalyticsToFirestore,
       }}
     >
       {children}
