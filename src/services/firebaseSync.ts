@@ -872,7 +872,12 @@ export const FirebaseSyncService = {
     return result;
   },
 
-  async purgeCloudStoreData(defaultSettings?: CompanySettings, defaultCategories?: Category[]): Promise<{
+  async purgeCloudStoreData(
+    defaultSettings?: CompanySettings,
+    defaultCategories?: Category[],
+    defaultRoles?: DynamicRole[],
+    defaultUsers?: User[]
+  ): Promise<{
     success: boolean;
     purgedCollections: string[];
     count: number;
@@ -890,6 +895,9 @@ export const FirebaseSyncService = {
       'daily_financial_reports',
       'due_management',
       'profit_analytics',
+      'users',
+      'roles',
+      'settings',
     ];
     let totalDeleted = 0;
     const purged: string[] = [];
@@ -913,6 +921,20 @@ export const FirebaseSyncService = {
       if (defaultCategories && defaultCategories.length > 0) {
         for (const cat of defaultCategories) {
           await this.saveCategory(cat);
+        }
+      }
+
+      // Re-seed default roles
+      if (defaultRoles && defaultRoles.length > 0) {
+        for (const role of defaultRoles) {
+          await this.saveRole(role);
+        }
+      }
+
+      // Re-seed default users (admin)
+      if (defaultUsers && defaultUsers.length > 0) {
+        for (const user of defaultUsers) {
+          await this.saveUser(user);
         }
       }
 

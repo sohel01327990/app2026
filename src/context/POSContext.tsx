@@ -2459,7 +2459,14 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsCloudSyncing(true);
     let cloudPurgedCount = 0;
     try {
-      const purgeRes = await FirebaseSyncService.purgeCloudStoreData(cleanSettings, cleanCategories);
+      const cleanRoles = StorageService.getRoles();
+      const cleanUsers = StorageService.getUsers();
+      const purgeRes = await FirebaseSyncService.purgeCloudStoreData(
+        cleanSettings,
+        cleanCategories,
+        cleanRoles,
+        cleanUsers
+      );
       cloudPurgedCount = purgeRes.count;
     } catch (cloudErr) {
       console.warn('Could not fully purge cloud data:', cloudErr);
@@ -2486,7 +2493,14 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const cleanSettings = StorageService.getCompanySettings();
       const cleanCategories = StorageService.getCategories();
-      const res = await FirebaseSyncService.purgeCloudStoreData(cleanSettings, cleanCategories);
+      const cleanRoles = StorageService.getRoles();
+      const cleanUsers = StorageService.getUsers();
+      const res = await FirebaseSyncService.purgeCloudStoreData(
+        cleanSettings,
+        cleanCategories,
+        cleanRoles,
+        cleanUsers
+      );
       return { success: res.success, count: res.count };
     } finally {
       setIsCloudSyncing(false);
