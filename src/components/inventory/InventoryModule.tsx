@@ -441,11 +441,15 @@ export const InventoryModule: React.FC = () => {
                     onChange={(e) => setFormCategory(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45]"
                   >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
+                    {categories.length === 0 ? (
+                      <option value="General">General</option>
+                    ) : (
+                      categories.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
                 <div>

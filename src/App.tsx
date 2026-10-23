@@ -2,20 +2,49 @@ import React, { useState } from 'react';
 import { POSProvider, usePOS, validatePasswordFormat } from './context/POSContext';
 import { Header } from './components/Header';
 import { Sidebar, TabType } from './components/Sidebar';
-import { POSModule } from './components/pos/POSModule';
-import { InvoicesListModule } from './components/pos/InvoicesListModule';
-import { InvoicePrintModal } from './components/pos/InvoicePrintModal';
-import { InventoryModule } from './components/inventory/InventoryModule';
-import { DailyReportModule } from './components/reports/DailyReportModule';
-import { DueManagementModule } from './components/due/DueManagementModule';
-import { ExpenseModule } from './components/expenses/ExpenseModule';
-import { AnalyticsModule } from './components/analytics/AnalyticsModule';
-import { AdminSettingsModule } from './components/admin/AdminSettingsModule';
-import { BackupSyncModule } from './components/sync/BackupSyncModule';
 import { LoginPortal } from './components/auth/LoginPortal';
 import { Lock, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getUserEffectiveModules } from './types';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+
+// Lazy load modules for ultra-fast initial page load on Vercel
+const POSModule = React.lazy(() =>
+  import('./components/pos/POSModule').then((m) => ({ default: m.POSModule }))
+);
+const InvoicesListModule = React.lazy(() =>
+  import('./components/pos/InvoicesListModule').then((m) => ({ default: m.InvoicesListModule }))
+);
+const InvoicePrintModal = React.lazy(() =>
+  import('./components/pos/InvoicePrintModal').then((m) => ({ default: m.InvoicePrintModal }))
+);
+const InventoryModule = React.lazy(() =>
+  import('./components/inventory/InventoryModule').then((m) => ({ default: m.InventoryModule }))
+);
+const DailyReportModule = React.lazy(() =>
+  import('./components/reports/DailyReportModule').then((m) => ({ default: m.DailyReportModule }))
+);
+const DueManagementModule = React.lazy(() =>
+  import('./components/due/DueManagementModule').then((m) => ({ default: m.DueManagementModule }))
+);
+const ExpenseModule = React.lazy(() =>
+  import('./components/expenses/ExpenseModule').then((m) => ({ default: m.ExpenseModule }))
+);
+const AnalyticsModule = React.lazy(() =>
+  import('./components/analytics/AnalyticsModule').then((m) => ({ default: m.AnalyticsModule }))
+);
+const AdminSettingsModule = React.lazy(() =>
+  import('./components/admin/AdminSettingsModule').then((m) => ({ default: m.AdminSettingsModule }))
+);
+const BackupSyncModule = React.lazy(() =>
+  import('./components/sync/BackupSyncModule').then((m) => ({ default: m.BackupSyncModule }))
+);
+
+const ModuleLoader: React.FC = () => (
+  <div className="flex-1 h-full min-h-[350px] flex flex-col items-center justify-center p-8 text-slate-400 animate-in fade-in">
+    <div className="w-9 h-9 border-3 border-[#C49A45]/20 border-t-[#C49A45] rounded-full animate-spin mb-3 shadow-xs" />
+    <span className="text-xs font-semibold text-slate-500 tracking-wider uppercase">Loading Module...</span>
+  </div>
+);
 
 const POSAppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('pos');
@@ -108,26 +137,30 @@ const POSAppContent: React.FC = () => {
 
         {/* Active Content Module with #FEFAF3 background and smooth scroll */}
         <main className="flex-1 overflow-y-auto bg-[#FEFAF3]">
-          {activeTab === 'pos' && <POSModule />}
-          {activeTab === 'inventory' && <InventoryModule />}
-          {activeTab === 'daily_report' && <DailyReportModule />}
-          {activeTab === 'due' && (
-            <DueManagementModule onNavigateToPOS={() => setActiveTab('pos')} />
-          )}
-          {activeTab === 'invoices' && <InvoicesListModule />}
-          {activeTab === 'expenses' && <ExpenseModule />}
-          {activeTab === 'analytics' && <AnalyticsModule />}
-          {activeTab === 'admin' && <AdminSettingsModule />}
-          {activeTab === 'backup' && <BackupSyncModule />}
+          <React.Suspense fallback={<ModuleLoader />}>
+            {activeTab === 'pos' && <POSModule />}
+            {activeTab === 'inventory' && <InventoryModule />}
+            {activeTab === 'daily_report' && <DailyReportModule />}
+            {activeTab === 'due' && (
+              <DueManagementModule onNavigateToPOS={() => setActiveTab('pos')} />
+            )}
+            {activeTab === 'invoices' && <InvoicesListModule />}
+            {activeTab === 'expenses' && <ExpenseModule />}
+            {activeTab === 'analytics' && <AnalyticsModule />}
+            {activeTab === 'admin' && <AdminSettingsModule />}
+            {activeTab === 'backup' && <BackupSyncModule />}
+          </React.Suspense>
         </main>
       </div>
 
       {/* Intelligent Invoice Print Modal */}
       {activePrintInvoice && (
-        <InvoicePrintModal
-          invoice={activePrintInvoice}
-          onClose={() => setActivePrintInvoice(null)}
-        />
+        <React.Suspense fallback={null}>
+          <InvoicePrintModal
+            invoice={activePrintInvoice}
+            onClose={() => setActivePrintInvoice(null)}
+          />
+        </React.Suspense>
       )}
 
       {/* Change Password Modal */}

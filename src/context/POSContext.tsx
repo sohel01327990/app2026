@@ -260,19 +260,28 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsFirebaseConnected(connected);
     });
 
-    // Auto-seed initial store catalog to Firestore if database is clean/empty
-    FirebaseSyncService.seedInitialDataIfEmpty({
-      settings: StorageService.getCompanySettings(),
-      categories: StorageService.getCategories(),
-      products: StorageService.getProducts(),
-      roles: StorageService.getRoles(),
-      users: StorageService.getUsers(),
-      customers: StorageService.getCustomers(),
-      suppliers: StorageService.getSuppliers(),
-      expenses: StorageService.getExpenses(),
-      invoices: StorageService.getInvoices(),
-      customerTransactions: StorageService.getCustomerTransactions(),
-    }).catch(console.warn);
+    // Defer initial data seeding check so real-time listeners and initial UI render immediately without network contention
+    const seedTimer = setTimeout(() => {
+      try {
+        const localProds = StorageService.getProducts();
+        if (!localProds || localProds.length === 0) {
+          FirebaseSyncService.seedInitialDataIfEmpty({
+            settings: StorageService.getCompanySettings(),
+            categories: StorageService.getCategories(),
+            products: StorageService.getProducts(),
+            roles: StorageService.getRoles(),
+            users: StorageService.getUsers(),
+            customers: StorageService.getCustomers(),
+            suppliers: StorageService.getSuppliers(),
+            expenses: StorageService.getExpenses(),
+            invoices: StorageService.getInvoices(),
+            customerTransactions: StorageService.getCustomerTransactions(),
+          }).catch(console.warn);
+        }
+      } catch (e) {
+        // quiet fallback
+      }
+    }, 1500);
 
     // Setup real-time Firestore listeners for all modules across all devices
     const unsubSettings = FirebaseSyncService.listenToCompanySettings((cloudSettings) => {
@@ -341,13 +350,15 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    // Ensure Master Admin user always exists in Firestore & Firebase
-    FirebaseSyncService.ensureMasterAdminUser(StorageService.getUsers()[0] || INITIAL_USERS[0]).catch(console.warn);
-
     const unsubUsers = FirebaseSyncService.listenToUsers((cloudUsers) => {
       if (cloudUsers && cloudUsers.length > 0) {
         setUsers(cloudUsers);
         StorageService.saveUsers(cloudUsers);
+        const hasAdmin = cloudUsers.some((u) => u.id === 'usr_admin' || u.username === 'admin');
+        if (!hasAdmin) {
+          const defaultAdmin = INITIAL_USERS[0];
+          FirebaseSyncService.saveUser(defaultAdmin).catch(console.warn);
+        }
       } else {
         // If users were deleted in Firebase, auto-resurrect master admin in state and Firestore
         const defaultAdmin = INITIAL_USERS[0];
@@ -372,6 +383,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => {
+      clearTimeout(seedTimer);
       unsubSettings();
       unsubCategories();
       unsubProducts();

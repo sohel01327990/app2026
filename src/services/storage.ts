@@ -28,21 +28,21 @@ import {
 import { FirebaseSyncService } from './firebaseSync';
 
 const KEYS = {
-  SETTINGS: 'allnoor_settings_v3',
-  ROLES: 'allnoor_roles_v3',
-  USERS: 'allnoor_users_v3',
-  CATEGORIES: 'allnoor_categories_v3',
-  CURRENT_USER_ID: 'allnoor_current_user_v3',
-  PRODUCTS: 'allnoor_products_v3',
-  CUSTOMERS: 'allnoor_customers_v3',
-  SUPPLIERS: 'allnoor_suppliers_v3',
-  EXPENSES: 'allnoor_expenses_v3',
-  INVOICES: 'allnoor_invoices_v3',
-  AUDIT_LOGS: 'allnoor_audit_logs_v3',
-  STOCK_ADJUSTMENTS: 'allnoor_stock_adjustments_v3',
-  CUSTOMER_TRANSACTIONS: 'allnoor_customer_tx_v3',
-  DEVICE_ID: 'allnoor_device_id_v3',
-  INVOICE_SEQ: 'allnoor_invoice_seq_v3',
+  SETTINGS: 'allnoor_settings_v4',
+  ROLES: 'allnoor_roles_v4',
+  USERS: 'allnoor_users_v4',
+  CATEGORIES: 'allnoor_categories_v4',
+  CURRENT_USER_ID: 'allnoor_current_user_v4',
+  PRODUCTS: 'allnoor_products_v4',
+  CUSTOMERS: 'allnoor_customers_v4',
+  SUPPLIERS: 'allnoor_suppliers_v4',
+  EXPENSES: 'allnoor_expenses_v4',
+  INVOICES: 'allnoor_invoices_v4',
+  AUDIT_LOGS: 'allnoor_audit_logs_v4',
+  STOCK_ADJUSTMENTS: 'allnoor_stock_adjustments_v4',
+  CUSTOMER_TRANSACTIONS: 'allnoor_customer_tx_v4',
+  DEVICE_ID: 'allnoor_device_id_v4',
+  INVOICE_SEQ: 'allnoor_invoice_seq_v4',
 };
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -92,7 +92,9 @@ export const StorageService = {
   },
 
   getCategories(): Category[] {
-    return safeGet<Category[]>(KEYS.CATEGORIES, INITIAL_CATEGORIES);
+    const legacyCatIds = ['cat_cement', 'cat_steel', 'cat_sand', 'cat_bricks', 'cat_pipes', 'cat_paints', 'cat_hardware'];
+    const cats = safeGet<Category[]>(KEYS.CATEGORIES, []);
+    return cats.filter((c) => !legacyCatIds.includes(c.id));
   },
   saveCategories(categories: Category[]): void {
     safeSet(KEYS.CATEGORIES, categories);
@@ -134,28 +136,33 @@ export const StorageService = {
   },
 
   getProducts(): Product[] {
-    return safeGet<Product[]>(KEYS.PRODUCTS, INITIAL_PRODUCTS);
+    const legacyProdIds = ['prd_1', 'prd_2', 'prd_3', 'prd_4'];
+    const prods = safeGet<Product[]>(KEYS.PRODUCTS, []);
+    return prods.filter((p) => !legacyProdIds.includes(p.id));
   },
   saveProducts(products: Product[]): void {
     safeSet(KEYS.PRODUCTS, products);
   },
 
   getCustomers(): Customer[] {
-    return safeGet<Customer[]>(KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
+    const custs = safeGet<Customer[]>(KEYS.CUSTOMERS, []);
+    return custs.filter((c) => c.id !== 'cst_1');
   },
   saveCustomers(customers: Customer[]): void {
     safeSet(KEYS.CUSTOMERS, customers);
   },
 
   getSuppliers(): Supplier[] {
-    return safeGet<Supplier[]>(KEYS.SUPPLIERS, INITIAL_SUPPLIERS);
+    const sups = safeGet<Supplier[]>(KEYS.SUPPLIERS, []);
+    return sups.filter((s) => s.id !== 'sup_1');
   },
   saveSuppliers(suppliers: Supplier[]): void {
     safeSet(KEYS.SUPPLIERS, suppliers);
   },
 
   getExpenses(): Expense[] {
-    return safeGet<Expense[]>(KEYS.EXPENSES, INITIAL_EXPENSES);
+    const exps = safeGet<Expense[]>(KEYS.EXPENSES, []);
+    return exps.filter((e) => e.id !== 'exp_1');
   },
   saveExpenses(expenses: Expense[]): void {
     safeSet(KEYS.EXPENSES, expenses);

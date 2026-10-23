@@ -86,10 +86,19 @@ export const FirebaseSyncService = {
 
   listenToCategories(callback: (categories: Category[]) => void): () => void {
     const path = 'categories';
+    const legacyCatIds = ['cat_cement', 'cat_steel', 'cat_sand', 'cat_bricks', 'cat_pipes', 'cat_paints', 'cat_hardware'];
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as Category);
+        // Clean out legacy default categories from cloud if found
+        snapshot.docs.forEach((d) => {
+          if (legacyCatIds.includes(d.id)) {
+            deleteDoc(d.ref).catch(() => {});
+          }
+        });
+        const items = snapshot.docs
+          .map((d) => d.data() as Category)
+          .filter((c) => !legacyCatIds.includes(c.id));
         callback(items);
       },
       (error) => {
@@ -121,10 +130,19 @@ export const FirebaseSyncService = {
 
   listenToProducts(callback: (products: Product[]) => void): () => void {
     const path = 'products';
+    const legacyProdIds = ['prd_1', 'prd_2', 'prd_3', 'prd_4'];
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as Product);
+        // Clean out legacy default mock products from cloud if found
+        snapshot.docs.forEach((d) => {
+          if (legacyProdIds.includes(d.id)) {
+            deleteDoc(d.ref).catch(() => {});
+          }
+        });
+        const items = snapshot.docs
+          .map((d) => d.data() as Product)
+          .filter((p) => !legacyProdIds.includes(p.id));
         // Sort products by creation or name
         items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         callback(items);
@@ -161,7 +179,14 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as Customer);
+        snapshot.docs.forEach((d) => {
+          if (d.id === 'cst_1') {
+            deleteDoc(d.ref).catch(() => {});
+          }
+        });
+        const items = snapshot.docs
+          .map((d) => d.data() as Customer)
+          .filter((c) => c.id !== 'cst_1');
         items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         callback(items);
       },
@@ -274,7 +299,14 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as Expense);
+        snapshot.docs.forEach((d) => {
+          if (d.id === 'exp_1') {
+            deleteDoc(d.ref).catch(() => {});
+          }
+        });
+        const items = snapshot.docs
+          .map((d) => d.data() as Expense)
+          .filter((e) => e.id !== 'exp_1');
         items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
         callback(items);
       },
@@ -310,7 +342,14 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        const items = snapshot.docs.map((d) => d.data() as Supplier);
+        snapshot.docs.forEach((d) => {
+          if (d.id === 'sup_1') {
+            deleteDoc(d.ref).catch(() => {});
+          }
+        });
+        const items = snapshot.docs
+          .map((d) => d.data() as Supplier)
+          .filter((s) => s.id !== 'sup_1');
         items.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
         callback(items);
       },
@@ -482,28 +521,32 @@ export const FirebaseSyncService = {
   // ==================== BULK SEED & SYNC ====================
   async seedInitialDataIfEmpty(data: {
     settings: CompanySettings;
-    categories: Category[];
-    products: Product[];
+    categories?: Category[];
+    products?: Product[];
     roles: DynamicRole[];
     users: User[];
-    customers: Customer[];
-    suppliers: Supplier[];
-    expenses: Expense[];
-    invoices: Invoice[];
-    customerTransactions: CustomerLedgerTransaction[];
+    customers?: Customer[];
+    suppliers?: Supplier[];
+    expenses?: Expense[];
+    invoices?: Invoice[];
+    customerTransactions?: CustomerLedgerTransaction[];
   }): Promise<boolean> {
     try {
-      const snapProd = await getDocs(collection(db, 'products'));
-      // If products collection is already populated, do not overwrite
-      if (!snapProd.empty) {
-        return false;
+      const snapUsers = await getDocs(collection(db, 'users'));
+      if (snapUsers.empty) {
+        console.info('Seeding admin account and default roles to clean database...');
+        await this.saveCompanySettings(data.settings);
+        for (const role of data.roles) {
+          await this.saveRole(role);
+        }
+        for (const user of data.users) {
+          await this.saveUser(user);
+        }
+        return true;
       }
-
-      console.info('Firestore is clean/empty. Seeding initial store database to cloud...');
-      await this.pushFullStoreToCloud(data);
-      return true;
+      return false;
     } catch (err) {
-      console.warn('Initial seeding check error (using local data):', err);
+      console.warn('Initial admin seed check (offline/cached):', err);
       return false;
     }
   },

@@ -1,5 +1,12 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  getFirestore,
+  doc,
+  getDocFromServer,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -34,7 +41,18 @@ import { getAnalytics, isSupported } from 'firebase/analytics';
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 export const auth = getAuth(app);
 const customDbId = (firebaseConfig as any).firestoreDatabaseId;
-export const db = (customDbId && customDbId !== '(default)') ? getFirestore(app, customDbId) : getFirestore(app);
+
+let firestoreInstance: any;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  }, (customDbId && customDbId !== '(default)') ? customDbId : undefined);
+} catch {
+  firestoreInstance = (customDbId && customDbId !== '(default)') ? getFirestore(app, customDbId) : getFirestore(app);
+}
+export const db = firestoreInstance;
 
 let analytics: any = null;
 if (typeof window !== 'undefined') {
@@ -105,13 +123,14 @@ export async function testConnection(): Promise<boolean> {
   if (isFirebaseExplicitlyDisconnected()) {
     return false;
   }
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-    return true;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client offline, fallback local cache active');
-    }
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return false;
+  }
+  try {
+    const checkPromise = getDocFromServer(doc(db, 'test', 'connection')).then(() => true).catch(() => true);
+    const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(navigator.onLine), 2000));
+    return await Promise.race([checkPromise, timeoutPromise]);
+  } catch {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
   }
 }
