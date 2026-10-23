@@ -301,136 +301,38 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const unsubCategories = FirebaseSyncService.listenToCategories((cloudCategories) => {
-      const localCats = StorageService.getCategories();
-      if (cloudCategories.length === 0) {
-        if (localCats.length > 0) {
-          localCats.forEach((c) => FirebaseSyncService.saveCategory(c).catch(console.warn));
-        }
-      } else {
-        const cloudIds = new Set(cloudCategories.map((c) => c.id));
-        const unsynced = localCats.filter((c) => !cloudIds.has(c.id));
-        if (unsynced.length > 0) {
-          unsynced.forEach((c) => FirebaseSyncService.saveCategory(c).catch(console.warn));
-        }
-        const merged = [...cloudCategories, ...unsynced];
-        setCategories(merged);
-        StorageService.saveCategories(merged);
-      }
+      setCategories(cloudCategories);
+      StorageService.saveCategories(cloudCategories);
     });
 
     const unsubProducts = FirebaseSyncService.listenToProducts((cloudProducts) => {
-      const localProds = StorageService.getProducts();
-      if (cloudProducts.length === 0) {
-        if (localProds.length > 0) {
-          localProds.forEach((p) => FirebaseSyncService.saveProduct(p).catch(console.warn));
-        }
-      } else {
-        const cloudIds = new Set(cloudProducts.map((p) => p.id));
-        const unsynced = localProds.filter((p) => !cloudIds.has(p.id));
-        if (unsynced.length > 0) {
-          unsynced.forEach((p) => FirebaseSyncService.saveProduct(p).catch(console.warn));
-        }
-        const merged = [...cloudProducts, ...unsynced];
-        merged.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        setProducts(merged);
-        StorageService.saveProducts(merged);
-      }
+      setProducts(cloudProducts);
+      StorageService.saveProducts(cloudProducts);
     });
 
     const unsubCustomers = FirebaseSyncService.listenToCustomers((cloudCustomers) => {
-      const localCusts = StorageService.getCustomers();
-      if (cloudCustomers.length === 0) {
-        if (localCusts.length > 0) {
-          localCusts.forEach((c) => FirebaseSyncService.saveCustomer(c).catch(console.warn));
-        }
-      } else {
-        const cloudIds = new Set(cloudCustomers.map((c) => c.id));
-        const unsynced = localCusts.filter((c) => !cloudIds.has(c.id));
-        if (unsynced.length > 0) {
-          unsynced.forEach((c) => FirebaseSyncService.saveCustomer(c).catch(console.warn));
-        }
-        const merged = [...cloudCustomers, ...unsynced];
-        merged.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        setCustomers(merged);
-        StorageService.saveCustomers(merged);
-      }
+      setCustomers(cloudCustomers);
+      StorageService.saveCustomers(cloudCustomers);
     });
 
     const unsubInvoices = FirebaseSyncService.listenToInvoices((cloudInvoices) => {
-      const localInvoices = StorageService.getInvoices();
-      if (cloudInvoices.length === 0) {
-        if (localInvoices.length > 0) {
-          // Push existing local invoices to Firebase so they are never lost on reload
-          localInvoices.forEach((inv) => FirebaseSyncService.saveInvoice(inv).catch(console.warn));
-        }
-      } else {
-        const cloudIds = new Set(cloudInvoices.map((i) => i.id));
-        const unsynced = localInvoices.filter((i) => !cloudIds.has(i.id));
-        if (unsynced.length > 0) {
-          unsynced.forEach((inv) => FirebaseSyncService.saveInvoice(inv).catch(console.warn));
-        }
-        const merged = [...cloudInvoices, ...unsynced];
-        merged.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-        setInvoices(merged);
-        StorageService.saveInvoices(merged);
-      }
+      setInvoices(cloudInvoices);
+      StorageService.saveInvoices(cloudInvoices);
     });
 
     const unsubTransactions = FirebaseSyncService.listenToCustomerTransactions((cloudTx) => {
-      const localTx = StorageService.getCustomerTransactions();
-      if (cloudTx.length === 0) {
-        if (localTx.length > 0) {
-          localTx.forEach((tx) => FirebaseSyncService.saveCustomerTransaction(tx).catch(console.warn));
-        }
-      } else {
-        const cloudIds = new Set(cloudTx.map((t) => t.id));
-        const unsynced = localTx.filter((t) => !cloudIds.has(t.id));
-        if (unsynced.length > 0) {
-          unsynced.forEach((tx) => FirebaseSyncService.saveCustomerTransaction(tx).catch(console.warn));
-        }
-        const merged = [...cloudTx, ...unsynced];
-        merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-        setCustomerTransactions(merged);
-        StorageService.saveCustomerTransactions(merged);
-      }
+      setCustomerTransactions(cloudTx);
+      StorageService.saveCustomerTransactions(cloudTx);
     });
 
     const unsubExpenses = FirebaseSyncService.listenToExpenses((cloudExpenses) => {
-      const localExps = StorageService.getExpenses();
-      if (cloudExpenses.length === 0) {
-        if (localExps.length > 0) {
-          localExps.forEach((exp) => FirebaseSyncService.saveExpense(exp).catch(console.warn));
-        }
-      } else {
-        const cloudIds = new Set(cloudExpenses.map((e) => e.id));
-        const unsynced = localExps.filter((e) => !cloudIds.has(e.id));
-        if (unsynced.length > 0) {
-          unsynced.forEach((exp) => FirebaseSyncService.saveExpense(exp).catch(console.warn));
-        }
-        const merged = [...cloudExpenses, ...unsynced];
-        merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-        setExpenses(merged);
-        StorageService.saveExpenses(merged);
-      }
+      setExpenses(cloudExpenses);
+      StorageService.saveExpenses(cloudExpenses);
     });
 
     const unsubSuppliers = FirebaseSyncService.listenToSuppliers((cloudSuppliers) => {
-      const localSups = StorageService.getSuppliers();
-      if (cloudSuppliers.length === 0) {
-        if (localSups.length > 0) {
-          localSups.forEach((s) => FirebaseSyncService.saveSupplier(s).catch(console.warn));
-        }
-      } else {
-        const cloudIds = new Set(cloudSuppliers.map((s) => s.id));
-        const unsynced = localSups.filter((s) => !cloudIds.has(s.id));
-        if (unsynced.length > 0) {
-          unsynced.forEach((s) => FirebaseSyncService.saveSupplier(s).catch(console.warn));
-        }
-        const merged = [...cloudSuppliers, ...unsynced];
-        merged.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
-        setSuppliers(merged);
-        StorageService.saveSuppliers(merged);
-      }
+      setSuppliers(cloudSuppliers);
+      StorageService.saveSuppliers(cloudSuppliers);
     });
 
     const unsubRoles = FirebaseSyncService.listenToRoles((cloudRoles) => {
@@ -444,11 +346,6 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (cloudUsers && cloudUsers.length > 0) {
         setUsers(cloudUsers);
         StorageService.saveUsers(cloudUsers);
-        const hasAdmin = cloudUsers.some((u) => u.id === 'usr_admin' || u.username === 'admin');
-        if (!hasAdmin) {
-          const defaultAdmin = INITIAL_USERS[0];
-          FirebaseSyncService.saveUser(defaultAdmin).catch(console.warn);
-        }
       } else {
         const defaultAdmin = INITIAL_USERS[0];
         setUsers([defaultAdmin]);
@@ -458,21 +355,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const unsubAdjustments = FirebaseSyncService.listenToStockAdjustments((cloudAdjs) => {
-      const localAdjs = StorageService.getStockAdjustments();
-      if (cloudAdjs.length === 0) {
-        if (localAdjs.length > 0) {
-          localAdjs.forEach((a) => FirebaseSyncService.saveStockAdjustment(a).catch(console.warn));
-        }
-      } else {
-        const cloudIds = new Set(cloudAdjs.map((a) => a.id));
-        const unsynced = localAdjs.filter((a) => !cloudIds.has(a.id));
-        if (unsynced.length > 0) {
-          unsynced.forEach((a) => FirebaseSyncService.saveStockAdjustment(a).catch(console.warn));
-        }
-        const merged = [...cloudAdjs, ...unsynced];
-        setStockAdjustments(merged);
-        StorageService.saveStockAdjustments(merged);
-      }
+      setStockAdjustments(cloudAdjs);
+      StorageService.saveStockAdjustments(cloudAdjs);
     });
 
     const unsubLogs = FirebaseSyncService.listenToAuditLogs((cloudLogs) => {

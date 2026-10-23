@@ -5,6 +5,7 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
+  writeBatch,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase/config';
 import {
@@ -905,10 +906,16 @@ export const FirebaseSyncService = {
     try {
       for (const colName of collectionsToPurge) {
         try {
-          const snap = await getDocs(collection(db, colName));
+          const colRef = collection(db, colName);
+          const snap = await getDocs(colRef);
           if (!snap.empty) {
-            const deletePromises = snap.docs.map((docSnap) => deleteDoc(docSnap.ref));
-            await Promise.all(deletePromises);
+            const docs = snap.docs;
+            for (let i = 0; i < docs.length; i += 400) {
+              const chunk = docs.slice(i, i + 400);
+              const batch = writeBatch(db);
+              chunk.forEach((d) => batch.delete(d.ref));
+              await batch.commit();
+            }
             totalDeleted += snap.size;
             purged.push(colName);
           }
