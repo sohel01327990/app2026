@@ -66,14 +66,51 @@ export const BackupSyncModule: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const content = event.target?.result as string;
       const res = restoreData(content);
-      setRestoreMessage({ text: res.message, success: res.success });
-      setTimeout(() => setRestoreMessage(null), 5000);
+      if (res.success) {
+        try {
+          setIsPushingCloud(true);
+          const pushRes = await pushAllToCloud();
+          setRestoreMessage({
+            text: `${res.message} And automatically saved & synced ${pushRes.count} records to Firebase Cloud for all devices!`,
+            success: true,
+          });
+        } catch (err: any) {
+          setRestoreMessage({
+            text: `${res.message} (Warning: Cloud sync failed: ${err.message})`,
+            success: false,
+          });
+        } finally {
+          setIsPushingCloud(false);
+        }
+      } else {
+        setRestoreMessage({ text: res.message, success: false });
+      }
+      setTimeout(() => setRestoreMessage(null), 7000);
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handleSaveRestoredData = async () => {
+    setIsPushingCloud(true);
+    try {
+      const pushRes = await pushAllToCloud();
+      setRestoreMessage({
+        text: `Successfully saved & synced ${pushRes.count} records to Firebase Cloud! Now visible across all devices and safe from refresh.`,
+        success: true,
+      });
+    } catch (err: any) {
+      setRestoreMessage({
+        text: `Failed to save to Firebase Cloud: ${err.message}`,
+        success: false,
+      });
+    } finally {
+      setIsPushingCloud(false);
+      setTimeout(() => setRestoreMessage(null), 6000);
+    }
   };
 
   const handleManualSync = async () => {
@@ -492,11 +529,23 @@ export const BackupSyncModule: React.FC = () => {
           </button>
 
           {currentRole.permissions.canManageSettings && (
-            <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FEFAF3] hover:bg-[#ebd5ad]/50 text-slate-800 border border-[#EADBCE] font-bold text-xs cursor-pointer transition-colors">
-              <Upload className="w-4 h-4 text-[#C49A45]" />
-              <span>Restore From Backup File</span>
-              <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FEFAF3] hover:bg-[#ebd5ad]/50 text-slate-800 border border-[#EADBCE] font-bold text-xs cursor-pointer transition-colors">
+                <Upload className="w-4 h-4 text-[#C49A45]" />
+                <span>Restore From Backup File</span>
+                <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+              </label>
+              <button
+                type="button"
+                onClick={handleSaveRestoredData}
+                disabled={isPushingCloud}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                title="Save and sync all restored data to Firebase Cloud for all devices"
+              >
+                <CheckCircle className={`w-4 h-4 ${isPushingCloud ? 'animate-spin' : ''}`} />
+                <span>{isPushingCloud ? 'Saving...' : 'Save'}</span>
+              </button>
+            </div>
           )}
 
           {/* Requirement 5: Reset to Clean Slate Button */}
