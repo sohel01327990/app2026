@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePOS } from '../../context/POSContext';
 import { Product, MaterialUnit, StockAdjustment } from '../../types';
 import {
@@ -60,6 +60,7 @@ export const InventoryModule: React.FC = () => {
   const [inwardSupplier, setInwardSupplier] = useState('');
   const [inwardTruckNumber, setInwardTruckNumber] = useState('');
   const [inwardSearchQuery, setInwardSearchQuery] = useState('');
+  const inwardQtyInputRef = useRef<HTMLInputElement>(null);
 
   const filteredInwardProducts = useMemo(() => {
     const q = inwardSearchQuery.toLowerCase().trim();
@@ -72,6 +73,20 @@ export const InventoryModule: React.FC = () => {
         p.brand.toLowerCase().includes(q)
     );
   }, [products, inwardSearchQuery]);
+
+  // Automatically select the first matching product when searching
+  useEffect(() => {
+    if (showInwardModal && filteredInwardProducts.length > 0) {
+      const isCurrentInFiltered = filteredInwardProducts.some((p) => p.id === inwardProductId);
+      if (!isCurrentInFiltered) {
+        setInwardProductId(filteredInwardProducts[0].id);
+      }
+    }
+  }, [filteredInwardProducts, showInwardModal, inwardProductId]);
+
+  const selectedInwardProd = useMemo(() => {
+    return products.find((p) => p.id === inwardProductId) || filteredInwardProducts[0];
+  }, [products, inwardProductId, filteredInwardProducts]);
 
   // Waste Form
   const [wasteProductId, setWasteProductId] = useState('');
@@ -169,16 +184,22 @@ export const InventoryModule: React.FC = () => {
 
   const handleInwardSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const prod = products.find((p) => p.id === inwardProductId);
+    const targetId = inwardProductId || filteredInwardProducts[0]?.id;
+    if (!targetId) return;
+    const prod = products.find((p) => p.id === targetId);
     if (!prod) return;
+    const qtyToAdd = Number(inwardQty);
+    if (isNaN(qtyToAdd) || qtyToAdd <= 0) return;
+
     logStockAdjustment(
-      inwardProductId,
+      targetId,
       'inward_purchase',
-      Number(inwardQty),
+      qtyToAdd,
       prod.unit,
       `Inward PO delivery: ${inwardSupplier || 'Factory Direct'} (Truck: ${inwardTruckNumber || 'N/A'})`
     );
     setShowInwardModal(false);
+    setInwardSearchQuery('');
   };
 
   const handleWasteSubmit = (e: React.FormEvent) => {
@@ -671,16 +692,26 @@ export const InventoryModule: React.FC = () => {
                   <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search material by name, SKU, barcode..."
+                    placeholder="Search material by name, SKU, barcode (Press Enter to select)..."
                     value={inwardSearchQuery}
                     onChange={(e) => setInwardSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (filteredInwardProducts.length > 0) {
+                          setInwardProductId(filteredInwardProducts[0].id);
+                          inwardQtyInputRef.current?.focus();
+                          inwardQtyInputRef.current?.select();
+                        }
+                      }
+                    }}
                     className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <select
                   value={inwardProductId}
                   onChange={(e) => setInwardProductId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900"
+                  className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-emerald-500"
                 >
                   {filteredInwardProducts.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -689,15 +720,35 @@ export const InventoryModule: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              {selectedInwardProd && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Selected Material</span>
+                    <strong className="text-slate-900 text-xs block font-bold">{selectedInwardProd.name}</strong>
+                    <span className="text-[10px] text-slate-500 font-mono">SKU: {selectedInwardProd.sku}</span>
+                  </div>
+                  <div className="text-right font-mono">
+                    <span className="text-[10px] text-slate-500 block">Stock Auto-Addition</span>
+                    <span className="text-slate-700">{selectedInwardProd.currentStock}</span>
+                    <span className="text-emerald-700 font-bold"> + {Number(inwardQty) || 0}</span>
+                    <span className="font-extrabold text-emerald-800 block text-xs">
+                      = {(Number(selectedInwardProd.currentStock) + (Number(inwardQty) || 0)).toLocaleString()} {selectedInwardProd.unit}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-slate-700 font-bold mb-1">Quantity *</label>
                 <input
+                  ref={inwardQtyInputRef}
                   type="number"
                   min="1"
                   required
                   value={inwardQty}
                   onChange={(e) => setInwardQty(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-mono font-bold"
+                  className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-mono font-bold focus:bg-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div className="flex gap-2 pt-2">
