@@ -515,14 +515,14 @@ export const POSModule: React.FC = () => {
                   {/* Quantity Stepper */}
                   <div className="flex items-center gap-1 bg-[#FEFAF3] rounded-lg p-0.5 border border-[#EADBCE]">
                     <button
-                      onClick={() => updateCartItemQty(item.product.id, item.quantity - 1)}
+                      onClick={() => updateCartItemQty(item.product.id, Math.max(0, item.quantity - 1))}
                       className="w-6 h-6 flex items-center justify-center text-slate-600 hover:text-slate-900 cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
                     <input
                       type="number"
-                      min="0.1"
+                      min="0"
                       step="any"
                       value={item.quantity}
                       onChange={(e) =>

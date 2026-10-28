@@ -59,6 +59,19 @@ export const InventoryModule: React.FC = () => {
   const [inwardQty, setInwardQty] = useState(50);
   const [inwardSupplier, setInwardSupplier] = useState('');
   const [inwardTruckNumber, setInwardTruckNumber] = useState('');
+  const [inwardSearchQuery, setInwardSearchQuery] = useState('');
+
+  const filteredInwardProducts = useMemo(() => {
+    const q = inwardSearchQuery.toLowerCase().trim();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        p.barcode.includes(q) ||
+        p.brand.toLowerCase().includes(q)
+    );
+  }, [products, inwardSearchQuery]);
 
   // Waste Form
   const [wasteProductId, setWasteProductId] = useState('');
@@ -654,12 +667,22 @@ export const InventoryModule: React.FC = () => {
             <form onSubmit={handleInwardSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="block text-slate-700 font-bold mb-1">Select Material *</label>
+                <div className="mb-2 relative">
+                  <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search material by name, SKU, barcode..."
+                    value={inwardSearchQuery}
+                    onChange={(e) => setInwardSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
                 <select
                   value={inwardProductId}
                   onChange={(e) => setInwardProductId(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900"
                 >
-                  {products.map((p) => (
+                  {filteredInwardProducts.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.sku}) &middot; Stock: {p.currentStock} {p.unit}
                     </option>

@@ -1706,17 +1706,14 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateCartItemQty = (productId: string, qty: number) => {
-    if (qty <= 0) {
-      removeFromCart(productId);
-      return;
-    }
+    const validQty = Math.max(0, qty);
     setCart((prev) =>
       prev.map((item) => {
         if (item.product.id === productId) {
           return {
             ...item,
-            quantity: qty,
-            total: qty * item.unitPrice - item.discount,
+            quantity: validQty,
+            total: validQty * item.unitPrice - item.discount,
           };
         }
         return item;
