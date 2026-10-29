@@ -53,8 +53,6 @@ export const POSModule: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [barcodeInput, setBarcodeInput] = useState('');
-  const [barcodeFlash, setBarcodeFlash] = useState(false);
 
   // Responsive Mobile Tab: 'products' | 'cart'
   const [mobileActiveView, setMobileActiveView] = useState<'products' | 'cart'>('products');
@@ -134,21 +132,7 @@ export const POSModule: React.FC = () => {
     );
   }, [customers, customerSearchText]);
 
-  const handleBarcodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!barcodeInput.trim()) return;
-    const found = products.find(
-      (p) => p.barcode === barcodeInput.trim() || p.sku.toLowerCase() === barcodeInput.trim().toLowerCase()
-    );
-    if (found) {
-      addToCart(found, 1);
-      setBarcodeInput('');
-      setBarcodeFlash(true);
-      setTimeout(() => setBarcodeFlash(false), 500);
-    } else {
-      alert(`No product found with barcode/SKU: ${barcodeInput}`);
-    }
-  };
+
 
   const rawSubtotal = cart.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
   const itemDiscounts = cart.reduce((acc, item) => acc + item.discount, 0);
@@ -363,25 +347,6 @@ export const POSModule: React.FC = () => {
                 <span className="hidden md:inline">Grid View</span>
               </button>
             </div>
-
-            <form onSubmit={handleBarcodeSubmit} className="flex items-center gap-1.5 flex-1 sm:flex-initial">
-              <div className={`relative flex items-center flex-1 sm:w-auto ${barcodeFlash ? 'ring-2 ring-emerald-500 rounded-xl' : ''}`}>
-                <Barcode className="absolute left-2.5 w-4 h-4 text-[#C49A45]" />
-                <input
-                  type="text"
-                  placeholder="Scan Barcode..."
-                  value={barcodeInput}
-                  onChange={(e) => setBarcodeInput(e.target.value)}
-                  className="w-full sm:w-36 pl-8 pr-2.5 py-2 text-xs font-mono rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45]"
-                />
-              </div>
-              <button
-                type="submit"
-                className="px-3 py-2 text-xs bg-[#C49A45] hover:bg-[#b58c38] text-white rounded-xl font-bold transition-colors cursor-pointer shrink-0"
-              >
-                Scan
-              </button>
-            </form>
           </div>
         </div>
 

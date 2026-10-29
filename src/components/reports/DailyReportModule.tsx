@@ -128,7 +128,43 @@ export const DailyReportModule: React.FC = () => {
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [customerTransactions, selectedDate]);
 
-  const openingCashBalance = Number(settings.openingCashBalance || 0);
+  // Automatically calculate opening cash balance from previous day's remaining cash balance, chained back to base settings
+  const openingCashBalance = useMemo(() => {
+    const allDatesSet = new Set<string>();
+    invoices.forEach(inv => { if (inv.status !== 'cancelled') allDatesSet.add(inv.createdAt.slice(0, 10)); });
+    expenses.forEach(e => allDatesSet.add(e.date.slice(0, 10)));
+    (customerTransactions || []).forEach(tx => allDatesSet.add(tx.date.slice(0, 10)));
+    (cashWithdrawals || []).forEach(w => allDatesSet.add(w.date));
+
+    const sortedDates = Array.from(allDatesSet).filter(d => d < selectedDate).sort();
+    if (sortedDates.length === 0) {
+      return Number(settings.openingCashBalance || 0);
+    }
+
+    let runningOpening = Number(settings.openingCashBalance || 0);
+
+    for (const d of sortedDates) {
+      const dInv = invoices.filter(inv => inv.createdAt.startsWith(d) && inv.status !== 'cancelled');
+      const dExp = expenses.filter(e => e.date.startsWith(d));
+      const dTx = (customerTransactions || []).filter(tx => tx.date.startsWith(d));
+      const dWd = (cashWithdrawals || []).filter(w => w.date === d);
+
+      const paidCash = dInv.reduce((sum, inv) => {
+        const cp = inv.payments?.filter(p => p.method === 'cash').reduce((s, p) => s + p.amount, 0) || inv.totalPaid;
+        return sum + cp;
+      }, 0);
+      const duesCollected = dTx.filter(tx => tx.type === 'due_payment').reduce((sum, tx) => sum + tx.amount, 0);
+      const cashExp = dExp.filter(e => e.paidVia === 'cash' || !e.paidVia).reduce((sum, e) => sum + e.amount, 0);
+      const cashRef = dTx.filter(tx => tx.type === 'cash_refund' || tx.type === 'material_return').reduce((sum, tx) => sum + tx.amount, 0);
+      const withdrawn = dWd.reduce((sum, w) => sum + w.amount, 0);
+
+      const closing = Math.max(0, runningOpening + paidCash + duesCollected - cashExp - cashRef);
+      runningOpening = Math.max(0, closing - withdrawn);
+    }
+
+    return runningOpening;
+  }, [selectedDate, invoices, expenses, customerTransactions, cashWithdrawals, settings.openingCashBalance]);
+
   const estimatedClosingCash = Math.max(
     0,
     openingCashBalance + dayTotalPaidCash + dayDuesCollectedCash - dayCashExpenses - dayCashRefunds
@@ -361,7 +397,7 @@ export const DailyReportModule: React.FC = () => {
           <span className="text-xl font-bold text-amber-700 font-mono tabular-nums">
             {settings.currencySymbol} {openingCashBalance.toLocaleString()}
           </span>
-          <span className="text-[10px] text-slate-400 block">Starting balance set by Admin</span>
+          <span className="text-[10px] text-slate-400 block">Auto from previous day's remaining balance</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-[#EADBCE] shadow-xs space-y-1">
