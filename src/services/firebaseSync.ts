@@ -24,6 +24,7 @@ import {
   DailyFinancialReportRecord,
   DueRecord,
   ProfitAnalyticsRecord,
+  CashWithdrawal,
 } from '../types';
 
 export interface CloudSyncStatus {
@@ -698,6 +699,50 @@ export const FirebaseSyncService = {
     );
   },
 
+  // ==================== CASH WITHDRAWALS (DAILY FINANCIAL REPORT) ====================
+  async saveCashWithdrawal(withdrawal: CashWithdrawal): Promise<void> {
+    const path = 'cash_withdrawals';
+    const cleanId = sanitizeId(withdrawal.id);
+    try {
+      const payload = cleanForFirestore({
+        ...withdrawal,
+        id: cleanId,
+      });
+      await setDoc(doc(db, path, cleanId), payload);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
+    }
+  },
+
+  async deleteCashWithdrawal(withdrawalId: string): Promise<void> {
+    const path = 'cash_withdrawals';
+    const cleanId = sanitizeId(withdrawalId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(withdrawalId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToCashWithdrawals(callback: (withdrawals: CashWithdrawal[]) => void): () => void {
+    const path = 'cash_withdrawals';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs
+          .map((d) => d.data() as CashWithdrawal)
+          .filter((w) => !isRecentlyDeleted(w.id));
+        items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
   // ==================== BULK SEED & SYNC ====================
   async seedInitialDataIfEmpty(data: {
     settings: CompanySettings;
@@ -896,6 +941,7 @@ export const FirebaseSyncService = {
       'daily_financial_reports',
       'due_management',
       'profit_analytics',
+      'cash_withdrawals',
       'users',
       'roles',
       'settings',

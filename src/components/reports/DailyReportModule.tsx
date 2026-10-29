@@ -12,6 +12,14 @@ import {
   Receipt,
   CheckCircle2,
   ArrowDownLeft,
+  Wallet,
+  ArrowUpRight,
+  Plus,
+  Trash2,
+  X,
+  AlertCircle,
+  PiggyBank,
+  Check,
 } from 'lucide-react';
 
 export const DailyReportModule: React.FC = () => {
@@ -22,11 +30,25 @@ export const DailyReportModule: React.FC = () => {
     getEffectiveInvoiceRevenue,
     getEffectiveInvoiceProfit,
     customerTransactions,
+    cashWithdrawals,
+    recordCashWithdrawal,
+    deleteCashWithdrawal,
+    currentUser,
   } = usePOS();
 
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().slice(0, 10);
   });
+
+  // Cash withdrawal modal state
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState<string>('');
+  const [withdrawnBy, setWithdrawnBy] = useState<string>('');
+  const [withdrawPurpose, setWithdrawPurpose] = useState<string>('Owner Draw / Bank Deposit');
+  const [withdrawNote, setWithdrawNote] = useState<string>('');
+  const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string>('');
+  const [withdrawSuccessMsg, setWithdrawSuccessMsg] = useState<string>('');
 
   const handleDateShift = (days: number) => {
     const cur = new Date(selectedDate);
@@ -101,7 +123,7 @@ export const DailyReportModule: React.FC = () => {
   }, [dayExpenses]);
 
   const dayCashRefunds = useMemo(() => {
-      return (customerTransactions || [])
+    return (customerTransactions || [])
       .filter((tx) => tx.date.startsWith(selectedDate) && (tx.type === 'cash_refund' || tx.type === 'material_return'))
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [customerTransactions, selectedDate]);
@@ -111,6 +133,65 @@ export const DailyReportModule: React.FC = () => {
     0,
     openingCashBalance + dayTotalPaidCash + dayDuesCollectedCash - dayCashExpenses - dayCashRefunds
   );
+
+  // Cash Withdrawals for this date
+  const dayCashWithdrawals = useMemo(() => {
+    return (cashWithdrawals || []).filter((w) => w.date === selectedDate);
+  }, [cashWithdrawals, selectedDate]);
+
+  const dayTotalCashWithdrawn = useMemo(() => {
+    return dayCashWithdrawals.reduce((sum, w) => sum + w.amount, 0);
+  }, [dayCashWithdrawals]);
+
+  // Remaining Balance in drawer/safe after cash withdrawals
+  const dayRemainingCashBalance = useMemo(() => {
+    return Math.max(0, estimatedClosingCash - dayTotalCashWithdrawn);
+  }, [estimatedClosingCash, dayTotalCashWithdrawn]);
+
+  const openWithdrawModal = () => {
+    setWithdrawAmount('');
+    setWithdrawnBy(currentUser?.name || 'Store Owner');
+    setWithdrawPurpose('Owner Draw / Bank Deposit');
+    setWithdrawNote('');
+    setWithdrawError('');
+    setWithdrawSuccessMsg('');
+    setShowWithdrawModal(true);
+  };
+
+  const handleWithdrawSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(withdrawAmount);
+    if (!amt || isNaN(amt) || amt <= 0) {
+      setWithdrawError('Please enter a valid cash amount to withdraw.');
+      return;
+    }
+    setWithdrawSubmitting(true);
+    setWithdrawError('');
+    const res = await recordCashWithdrawal({
+      date: selectedDate,
+      amount: amt,
+      withdrawnBy: withdrawnBy.trim() || currentUser?.name || 'Store Owner',
+      purpose: withdrawPurpose,
+      note: withdrawNote,
+      closingCashBefore: estimatedClosingCash,
+    });
+    setWithdrawSubmitting(false);
+    if (res.success) {
+      setWithdrawSuccessMsg('Cash withdrawal recorded successfully and synced to Firebase!');
+      setTimeout(() => {
+        setShowWithdrawModal(false);
+        setWithdrawSuccessMsg('');
+      }, 900);
+    } else {
+      setWithdrawError(res.message);
+    }
+  };
+
+  const handleDeleteWithdrawal = async (id: string, amount: number) => {
+    if (window.confirm(`Are you sure you want to cancel and delete this cash withdrawal of ${settings.currencySymbol}${amount.toLocaleString()}? The amount will return to the remaining balance.`)) {
+      await deleteCashWithdrawal(id);
+    }
+  };
 
   const handlePrintDailyReport = () => {
     printDailyReportSafely({
@@ -128,6 +209,9 @@ export const DailyReportModule: React.FC = () => {
       dayCashExpenses,
       dayCashRefunds,
       estimatedClosingCash,
+      cashWithdrawnToday: dayTotalCashWithdrawn,
+      remainingCashBalance: dayRemainingCashBalance,
+      withdrawals: dayCashWithdrawals,
       invoices: dayInvoices,
       expenses: dayExpenses,
     });
@@ -300,7 +384,7 @@ export const DailyReportModule: React.FC = () => {
           </span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-[#C49A45]/40 shadow-xs space-y-1 bg-amber-50/30">
+        <div className="p-4 rounded-2xl bg-white border border-[#C49A45]/40 shadow-xs space-y-1 bg-amber-50/20">
           <span className="text-xs text-slate-700 font-bold block">Closing Cash in Hand</span>
           <span className="text-xl font-extrabold text-[#C49A45] font-mono tabular-nums">
             {settings.currencySymbol} {estimatedClosingCash.toLocaleString()}
@@ -309,21 +393,75 @@ export const DailyReportModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Prominent Cash Withdrawal & Remaining Balance Reconciliation Banner */}
+      <div className="p-5 rounded-3xl bg-gradient-to-r from-amber-50 via-white to-emerald-50 border-2 border-emerald-300/80 shadow-md flex flex-col md:flex-row items-stretch md:items-center justify-between gap-5">
+        {/* Left: Cash Withdrawn Today */}
+        <div className="flex-1 flex items-center justify-between p-4 rounded-2xl bg-white border border-rose-200 shadow-2xs">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-rose-700">
+              <Wallet className="w-4 h-4 text-rose-600" />
+              <span>Day's Cash Withdrawn</span>
+            </div>
+            <div className="text-2xl font-black font-mono text-rose-600 tabular-nums">
+              {settings.currencySymbol} {dayTotalCashWithdrawn.toLocaleString()}
+            </div>
+            <div className="text-[11px] text-slate-500">
+              {dayCashWithdrawals.length} withdrawal voucher(s) logged today
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={openWithdrawModal}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors flex items-center gap-1 cursor-pointer shrink-0 ml-3"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Withdraw Cash</span>
+          </button>
+        </div>
+
+        {/* Middle: Math Calculation Arrow */}
+        <div className="hidden lg:flex flex-col items-center justify-center px-2 text-center text-xs font-mono font-semibold text-slate-400">
+          <span>Closing ({settings.currencySymbol}{estimatedClosingCash.toLocaleString()})</span>
+          <span className="text-rose-500 font-bold">- Withdrawn ({settings.currencySymbol}{dayTotalCashWithdrawn.toLocaleString()})</span>
+          <span className="text-emerald-700 font-bold">= Remaining Balance</span>
+        </div>
+
+        {/* Right: Remaining Cash Balance */}
+        <div className="flex-1 flex items-center justify-between p-4 rounded-2xl bg-emerald-600 text-white shadow-md">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-100">
+              <PiggyBank className="w-4 h-4 text-emerald-200" />
+              <span>Remaining Balance in Hand / Safe (অবশিষ্ট ব্যালেন্স)</span>
+            </div>
+            <div className="text-2xl sm:text-3xl font-black font-mono text-white tabular-nums tracking-tight">
+              {settings.currencySymbol} {dayRemainingCashBalance.toLocaleString()}
+            </div>
+            <div className="text-[11px] text-emerald-100/90 font-medium">
+              Closing Cash - Cash Withdrawn = Net Remaining in Drawer / Safe
+            </div>
+          </div>
+          <span className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-white/20 text-white text-[11px] font-bold uppercase tracking-wider font-mono">
+            Available
+          </span>
+        </div>
+      </div>
+
+      {/* Tables Section: Invoices, Expenses & Cash Withdrawals */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Invoices */}
-        <div className="bg-white border border-[#EADBCE] rounded-3xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-[#EADBCE] rounded-3xl shadow-xs overflow-hidden flex flex-col">
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <Receipt className="w-4 h-4 text-[#C49A45]" />
-              <span>Invoices for Date ({dayInvoices.length})</span>
+              <span>Invoices ({dayInvoices.length})</span>
             </h3>
             <span className="text-[11px] text-slate-500 font-mono">Date: {selectedDate}</span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-1 max-h-80 overflow-y-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead>
+              <thead className="sticky top-0 bg-slate-50 z-10">
                 <tr className="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
                   <th className="py-2.5 px-3">Invoice #</th>
                   <th className="py-2.5 px-3">Customer</th>
@@ -338,20 +476,20 @@ export const DailyReportModule: React.FC = () => {
                   const isReturned = (inv.returns && inv.returns.length > 0);
                   return (
                     <tr key={inv.id} className="hover:bg-[#FEFAF3]">
-                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{inv.id}</td>
-                      <td className="py-2.5 px-3">
-                        <span className="font-semibold block text-slate-900">{inv.customerName}</span>
+                      <td className="py-2 px-3 font-mono font-bold text-slate-900">{inv.id}</td>
+                      <td className="py-2 px-3">
+                        <span className="font-semibold block text-slate-900 truncate max-w-[120px]">{inv.customerName}</span>
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold">
+                      <td className="py-2 px-3 text-right font-mono font-bold whitespace-nowrap">
                         {settings.currencySymbol}{effective.toLocaleString()}
                         {isReturned && (
                           <span className="text-[10px] text-rose-600 block font-normal">Return Adjusted</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-emerald-700">
+                      <td className="py-2 px-3 text-right font-mono text-emerald-700 whitespace-nowrap">
                         {settings.currencySymbol}{inv.totalPaid.toLocaleString()}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-rose-600 font-semibold">
+                      <td className="py-2 px-3 text-right font-mono text-rose-600 font-semibold whitespace-nowrap">
                         {settings.currencySymbol}{inv.dueAmount.toLocaleString()}
                       </td>
                     </tr>
@@ -370,20 +508,20 @@ export const DailyReportModule: React.FC = () => {
         </div>
 
         {/* Expenses */}
-        <div className="bg-white border border-[#EADBCE] rounded-3xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-[#EADBCE] rounded-3xl shadow-xs overflow-hidden flex flex-col">
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <TrendingDown className="w-4 h-4 text-rose-600" />
-              <span>Expenses for Date ({dayExpenses.length})</span>
+              <span>Expenses ({dayExpenses.length})</span>
             </h3>
             <span className="text-[11px] text-slate-500 font-mono">
               Total: {settings.currencySymbol}{dayTotalExpense.toLocaleString()}
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-1 max-h-80 overflow-y-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead>
+              <thead className="sticky top-0 bg-slate-50 z-10">
                 <tr className="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
                   <th className="py-2.5 px-3">Category</th>
                   <th className="py-2.5 px-3">Description</th>
@@ -394,10 +532,10 @@ export const DailyReportModule: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {dayExpenses.map((exp) => (
                   <tr key={exp.id} className="hover:bg-[#FEFAF3]">
-                    <td className="py-2.5 px-3 font-semibold text-slate-900">{exp.category}</td>
-                    <td className="py-2.5 px-3 text-slate-600">{exp.description}</td>
-                    <td className="py-2.5 px-3 text-[11px] capitalize text-slate-500">{exp.paidVia}</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600">
+                    <td className="py-2 px-3 font-semibold text-slate-900">{exp.category}</td>
+                    <td className="py-2 px-3 text-slate-600 truncate max-w-[120px]">{exp.description}</td>
+                    <td className="py-2 px-3 text-[11px] capitalize text-slate-500">{exp.paidVia}</td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-rose-600 whitespace-nowrap">
                       {settings.currencySymbol}{exp.amount.toLocaleString()}
                     </td>
                   </tr>
@@ -413,8 +551,221 @@ export const DailyReportModule: React.FC = () => {
             </table>
           </div>
         </div>
+
+        {/* Cash Withdrawals Table */}
+        <div className="bg-white border border-[#EADBCE] rounded-3xl shadow-xs overflow-hidden flex flex-col">
+          <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Wallet className="w-4 h-4 text-rose-600" />
+              <span>Cash Withdrawals ({dayCashWithdrawals.length})</span>
+            </h3>
+            <button
+              type="button"
+              onClick={openWithdrawModal}
+              className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Withdraw</span>
+            </button>
+          </div>
+
+          <div className="overflow-x-auto flex-1 max-h-80 overflow-y-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="sticky top-0 bg-slate-50 z-10">
+                <tr className="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
+                  <th className="py-2.5 px-3">Amount</th>
+                  <th className="py-2.5 px-3">By / Reason</th>
+                  <th className="py-2.5 px-3">Time</th>
+                  <th className="py-2.5 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {dayCashWithdrawals.map((wth) => (
+                  <tr key={wth.id} className="hover:bg-[#FEFAF3]">
+                    <td className="py-2 px-3 font-mono font-bold text-rose-600 whitespace-nowrap">
+                      {settings.currencySymbol}{wth.amount.toLocaleString()}
+                    </td>
+                    <td className="py-2 px-3">
+                      <span className="font-semibold block text-slate-900">{wth.withdrawnBy}</span>
+                      <span className="text-[10px] text-slate-500 block truncate max-w-[120px]">
+                        {wth.purpose || 'Owner draw'} {wth.note ? `(${wth.note})` : ''}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                      {new Date(wth.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWithdrawal(wth.id, wth.amount)}
+                        title="Delete withdrawal"
+                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {dayCashWithdrawals.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400 text-xs space-y-1">
+                      <p>No cash withdrawals on this date.</p>
+                      <button
+                        type="button"
+                        onClick={openWithdrawModal}
+                        className="text-rose-600 font-bold hover:underline"
+                      >
+                        + Withdraw Cash Now
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
+
+    {/* Record Cash Withdrawal Modal */}
+    {showWithdrawModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div className="w-full max-w-md rounded-3xl bg-white border border-[#EADBCE] p-6 shadow-2xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-rose-600" />
+              <span>Record Daily Cash Withdrawal (ক্যাশ উত্তোলন)</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowWithdrawModal(false)}
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Balance Overview Card inside Modal */}
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600 font-medium">Closing Cash in Hand:</span>
+              <span className="font-mono font-bold text-slate-900">
+                {settings.currencySymbol} {estimatedClosingCash.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600 font-medium">Already Withdrawn Today:</span>
+              <span className="font-mono font-bold text-rose-600">
+                -{settings.currencySymbol} {dayTotalCashWithdrawn.toLocaleString()}
+              </span>
+            </div>
+            <div className="pt-2 border-t border-amber-200 flex items-center justify-between font-bold">
+              <span className="text-slate-800">Available Balance:</span>
+              <span className="font-mono text-emerald-700 text-sm">
+                {settings.currencySymbol} {dayRemainingCashBalance.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          {withdrawError && (
+            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{withdrawError}</span>
+            </div>
+          )}
+
+          {withdrawSuccessMsg && (
+            <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+              <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>{withdrawSuccessMsg}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleWithdrawSubmit} className="space-y-3.5 text-xs">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">
+                Withdrawal Amount ({settings.currencySymbol}) *
+              </label>
+              <input
+                type="number"
+                min="0.001"
+                step="any"
+                required
+                placeholder="Enter amount to withdraw..."
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                className="w-full px-3 py-2 text-sm font-mono font-bold rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Purpose / Reason *</label>
+              <select
+                value={withdrawPurpose}
+                onChange={(e) => setWithdrawPurpose(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-rose-500"
+              >
+                <option value="Owner Draw / Bank Deposit">Owner Draw / Bank Deposit</option>
+                <option value="Safe / Vault Transfer">Safe / Vault Transfer</option>
+                <option value="Cash Deposit to Bank">Cash Deposit to Bank</option>
+                <option value="Emergency Operating Advance">Emergency Operating Advance</option>
+                <option value="Supplier Cash Settlement">Supplier Cash Settlement</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Withdrawn By *</label>
+              <input
+                type="text"
+                required
+                placeholder="Name of person withdrawing cash"
+                value={withdrawnBy}
+                onChange={(e) => setWithdrawnBy(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Note / Voucher Ref (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Bank slip #124 or personal draw"
+                value={withdrawNote}
+                onChange={(e) => setWithdrawNote(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            {/* Live Remaining Balance Calculation Preview */}
+            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs flex items-center justify-between">
+              <span className="text-slate-700 font-medium">Remaining Cash after this Withdrawal:</span>
+              <span className="font-mono font-black text-emerald-800 text-sm">
+                {settings.currencySymbol}{' '}
+                {Math.max(0, dayRemainingCashBalance - (parseFloat(withdrawAmount) || 0)).toLocaleString()}
+              </span>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowWithdrawModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={withdrawSubmitting}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer disabled:opacity-50 transition-colors shadow-xs"
+              >
+                {withdrawSubmitting ? 'Saving to Firebase...' : 'Confirm Withdrawal'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
   </div>
 );
 };

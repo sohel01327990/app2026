@@ -11,6 +11,7 @@ import {
   StockAdjustment,
   CustomerLedgerTransaction,
   Category,
+  CashWithdrawal,
 } from '../types';
 import {
   INITIAL_COMPANY_SETTINGS,
@@ -41,6 +42,7 @@ const KEYS = {
   AUDIT_LOGS: 'allnoor_audit_logs_v4',
   STOCK_ADJUSTMENTS: 'allnoor_stock_adjustments_v4',
   CUSTOMER_TRANSACTIONS: 'allnoor_customer_tx_v4',
+  CASH_WITHDRAWALS: 'allnoor_cash_withdrawals_v4',
   DEVICE_ID: 'allnoor_device_id_v4',
   INVOICE_SEQ: 'allnoor_invoice_seq_v4',
 };
@@ -235,6 +237,13 @@ export const StorageService = {
     this.saveCustomerTransactions(updated);
   },
 
+  getCashWithdrawals(): CashWithdrawal[] {
+    return safeGet<CashWithdrawal[]>(KEYS.CASH_WITHDRAWALS, []);
+  },
+  saveCashWithdrawals(withdrawals: CashWithdrawal[]): void {
+    safeSet(KEYS.CASH_WITHDRAWALS, withdrawals);
+  },
+
   // Ensure every Invoice ID is strictly unique and at most 10 characters (e.g. INV-100001)
   generateNextInvoiceId(): { id: string; seq: number } {
     const existingInvoices = this.getInvoices();
@@ -279,6 +288,7 @@ export const StorageService = {
         auditLogs: this.getAuditLogs(),
         stockAdjustments: this.getStockAdjustments(),
         customerTransactions: this.getCustomerTransactions(),
+        cashWithdrawals: this.getCashWithdrawals(),
       },
     };
     return JSON.stringify(snapshot, null, 2);
@@ -303,6 +313,7 @@ export const StorageService = {
       if (data.auditLogs) safeSet(KEYS.AUDIT_LOGS, data.auditLogs);
       if (data.stockAdjustments) safeSet(KEYS.STOCK_ADJUSTMENTS, data.stockAdjustments);
       if (data.customerTransactions) safeSet(KEYS.CUSTOMER_TRANSACTIONS, data.customerTransactions);
+      if (data.cashWithdrawals) safeSet(KEYS.CASH_WITHDRAWALS, data.cashWithdrawals);
       return { success: true, message: `Successfully restored database snapshot from ${parsed.exportedAt || 'backup'}.` };
     } catch (err: unknown) {
       return { success: false, message: `Failed to restore: ${err instanceof Error ? err.message : String(err)}` };
@@ -323,6 +334,7 @@ export const StorageService = {
     safeSet(KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
     safeSet(KEYS.STOCK_ADJUSTMENTS, []);
     safeSet(KEYS.CUSTOMER_TRANSACTIONS, []);
+    safeSet(KEYS.CASH_WITHDRAWALS, []);
     safeSet(KEYS.INVOICE_SEQ, '100000');
     localStorage.setItem(KEYS.CURRENT_USER_ID, INITIAL_USERS[0].id);
   },

@@ -20,6 +20,15 @@ import {
   Boxes,
   ShoppingCart,
   Building,
+  List,
+  LayoutGrid,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Phone,
+  X,
+  Check,
 } from 'lucide-react';
 
 export const POSModule: React.FC = () => {
@@ -52,6 +61,12 @@ export const POSModule: React.FC = () => {
 
   // Customer state for this sale
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [customerSearchText, setCustomerSearchText] = useState('');
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+
+  // Product Catalog view mode: 'table' (rows and columns) or 'grid' (cards)
+  const [catalogViewMode, setCatalogViewMode] = useState<'grid' | 'table'>('table');
+  const [selectedProductIndex, setSelectedProductIndex] = useState<number>(0);
 
   useEffect(() => {
     if (selectedCustomerIdForPOS) {
@@ -101,6 +116,23 @@ export const POSModule: React.FC = () => {
       return matchesCategory && matchesSearch;
     });
   }, [products, selectedCategory, searchQuery]);
+
+  // Reset selected product index whenever search or category changes
+  useEffect(() => {
+    setSelectedProductIndex(0);
+  }, [searchQuery, selectedCategory]);
+
+  // Real-time matching previous customers by Name or Mobile Phone
+  const matchingCustomers = useMemo(() => {
+    if (!customerSearchText.trim()) return [];
+    const q = customerSearchText.toLowerCase().trim();
+    return customers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.phone && c.phone.includes(q)) ||
+        (c.address && c.address.toLowerCase().includes(q))
+    );
+  }, [customers, customerSearchText]);
 
   const handleBarcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -272,37 +304,85 @@ export const POSModule: React.FC = () => {
       <div className={`flex-1 flex flex-col border-r border-[#EADBCE] overflow-hidden bg-[#FEFAF3] ${
         mobileActiveView === 'products' ? 'flex' : 'hidden lg:flex'
       }`}>
-        {/* Search & Barcode */}
+        {/* Search, Barcode & View Switcher */}
         <div className="p-3 bg-white border-b border-[#EADBCE] flex flex-col sm:flex-row gap-2.5 items-center justify-between">
           <div className="relative w-full sm:flex-1">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search product name, SKU, brand, or barcode..."
+              placeholder="Search product name, SKU, brand, or barcode (↑/↓ to navigate, Enter to add)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (filteredProducts.length === 0) return;
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setSelectedProductIndex((prev) => Math.min(filteredProducts.length - 1, prev + 1));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setSelectedProductIndex((prev) => Math.max(0, prev - 1));
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const target = filteredProducts[selectedProductIndex] || filteredProducts[0];
+                  if (target) {
+                    addToCart(target, 1);
+                  }
+                }
+              }}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45]"
             />
           </div>
 
-          <form onSubmit={handleBarcodeSubmit} className="flex items-center gap-1.5 w-full sm:w-auto">
-            <div className={`relative flex items-center w-full sm:w-auto ${barcodeFlash ? 'ring-2 ring-emerald-500 rounded-xl' : ''}`}>
-              <Barcode className="absolute left-2.5 w-4 h-4 text-[#C49A45]" />
-              <input
-                type="text"
-                placeholder="Scan Barcode..."
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                className="w-full sm:w-44 pl-8 pr-2.5 py-2 text-xs font-mono rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45]"
-              />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* View Mode Toggle (Table / Grid) */}
+            <div className="flex items-center border border-slate-200 bg-[#FEFAF3] rounded-xl p-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCatalogViewMode('table')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  catalogViewMode === 'table' || searchQuery.trim().length > 0
+                    ? 'bg-[#C49A45] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="রোল ও কলাম ভিউ (Table View)"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Table View</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCatalogViewMode('grid')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  catalogViewMode === 'grid' && searchQuery.trim().length === 0
+                    ? 'bg-[#C49A45] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="কার্ড ভিউ (Grid View)"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Grid View</span>
+              </button>
             </div>
-            <button
-              type="submit"
-              className="px-3.5 py-2 text-xs bg-[#C49A45] hover:bg-[#b58c38] text-white rounded-xl font-bold transition-colors cursor-pointer shrink-0"
-            >
-              Scan
-            </button>
-          </form>
+
+            <form onSubmit={handleBarcodeSubmit} className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+              <div className={`relative flex items-center flex-1 sm:w-auto ${barcodeFlash ? 'ring-2 ring-emerald-500 rounded-xl' : ''}`}>
+                <Barcode className="absolute left-2.5 w-4 h-4 text-[#C49A45]" />
+                <input
+                  type="text"
+                  placeholder="Scan Barcode..."
+                  value={barcodeInput}
+                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  className="w-full sm:w-36 pl-8 pr-2.5 py-2 text-xs font-mono rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45]"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-3 py-2 text-xs bg-[#C49A45] hover:bg-[#b58c38] text-white rounded-xl font-bold transition-colors cursor-pointer shrink-0"
+              >
+                Scan
+              </button>
+            </form>
+          </div>
         </div>
 
         {/* Categories Bar */}
@@ -315,103 +395,283 @@ export const POSModule: React.FC = () => {
                 : 'bg-[#FEFAF3] text-slate-700 hover:bg-[#ebd5ad]/40 border border-[#EADBCE]'
             }`}
           >
-            All Categories
+            All Categories ({products.length})
           </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.name)}
-              className={`px-3 py-1.5 text-xs rounded-xl font-bold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
-                selectedCategory === cat.name
-                  ? 'bg-[#C49A45] text-white shadow-xs'
-                  : 'bg-[#FEFAF3] text-slate-700 hover:bg-[#ebd5ad]/40 border border-[#EADBCE]'
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Product Cards Grid: Responsive 4 cols on 2xl, 3 on xl, 2 on sm/md/lg, 1 on mobile */}
-        <div className="flex-1 p-3.5 sm:p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5 content-start">
-          {filteredProducts.map((prod) => {
-            const isLowStock = prod.currentStock <= prod.minStockThreshold;
+          {categories.map((cat) => {
+            const count = products.filter((p) => p.category === cat.name).length;
             return (
-              <div
-                key={prod.id}
-                onClick={() => addToCart(prod, 1)}
-                className="p-3.5 rounded-2xl bg-white border border-[#EADBCE] product-card-hover hover:border-[#C49A45] hover:bg-[#C49A45] hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group select-none relative min-h-[160px]"
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.name)}
+                className={`px-3 py-1.5 text-xs rounded-xl font-bold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
+                  selectedCategory === cat.name
+                    ? 'bg-[#C49A45] text-white shadow-xs'
+                    : 'bg-[#FEFAF3] text-slate-700 hover:bg-[#ebd5ad]/40 border border-[#EADBCE]'
+                }`}
               >
-                <div>
-                  {/* Top Row: SKU badge & Brand */}
-                  <div className="flex items-center justify-between gap-1 text-[11px] mb-1.5">
-                    <span className="font-mono font-bold text-[#856324] group-hover:text-white bg-amber-50 group-hover:bg-white/20 px-2 py-0.5 rounded-md transition-colors truncate max-w-[120px]">
-                      {prod.sku}
-                    </span>
-                    <span className="font-semibold text-slate-500 group-hover:text-white/90 transition-colors text-right truncate text-[11px]">
-                      {prod.brand || 'General'}
-                    </span>
-                  </div>
-
-                  {/* Product Name */}
-                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-white transition-colors line-clamp-2 leading-snug mb-0.5">
-                    {prod.name}
-                  </h4>
-
-                  {/* Category */}
-                  <p className="text-xs text-slate-500 group-hover:text-white/80 transition-colors truncate">
-                    {prod.category}
-                  </p>
-                </div>
-
-                {/* Bottom Info Section */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100 group-hover:border-white/20 transition-colors space-y-2">
-                  {/* Stock Badge & Min Price Row */}
-                  <div className="flex items-center justify-between gap-1 text-[11px]">
-                    <span
-                      className={`inline-flex items-center gap-1 font-mono font-bold px-2 py-0.5 rounded-md transition-colors whitespace-nowrap ${
-                        isLowStock
-                          ? 'bg-rose-50 text-rose-700 group-hover:bg-rose-900/40 group-hover:text-white'
-                          : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-900/40 group-hover:text-white'
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isLowStock ? 'bg-rose-500' : 'bg-emerald-500'} group-hover:bg-white`} />
-                      Stock: {prod.currentStock.toLocaleString()} {prod.unit}
-                    </span>
-
-                    <span className="text-[10px] text-slate-400 group-hover:text-white/70 transition-colors font-mono whitespace-nowrap">
-                      Min: {settings.currencySymbol}{prod.minSellingPrice.toLocaleString()}
-                    </span>
-                  </div>
-
-                  {/* Price & Add to Cart Row */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-mono leading-none">
-                      <span className="text-base sm:text-lg font-extrabold text-slate-900 group-hover:text-white transition-colors tabular-nums">
-                        {settings.currencySymbol}{prod.regularPrice.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-slate-400 group-hover:text-white/80 font-normal ml-0.5">
-                        /{prod.unit}
-                      </span>
-                    </div>
-
-                    <div className="px-2.5 py-1 text-xs font-bold rounded-lg bg-[#C49A45] group-hover:bg-white text-white group-hover:text-[#856324] shadow-xs transition-colors shrink-0 whitespace-nowrap flex items-center gap-1">
-                      <span>+ Add</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                {cat.name} ({count})
+              </button>
             );
           })}
-
-          {filteredProducts.length === 0 && (
-            <div className="col-span-full py-16 text-center text-slate-400 space-y-2">
-              <Boxes className="w-10 h-10 mx-auto text-slate-300" />
-              <p className="text-sm font-semibold text-slate-700">No products match search criteria</p>
-              <p className="text-xs text-slate-500">Go to "Inventory & Yard" to add or edit catalog products</p>
-            </div>
-          )}
         </div>
+
+        {/* Product Catalog Display: Row & Column Table View when searching or selected, otherwise Grid */}
+        {searchQuery.trim().length > 0 || catalogViewMode === 'table' ? (
+          <div className="flex-1 flex flex-col overflow-hidden bg-white">
+            {/* Table Header matching Image 1 */}
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-10 select-none">
+                  <tr>
+                    <th className="py-2 px-3 border-r border-slate-300 w-28 md:w-32">Code</th>
+                    <th className="py-2 px-3 border-r border-slate-300">Item Name</th>
+                    <th className="py-2 px-3 border-r border-slate-300 hidden md:table-cell w-28">Category</th>
+                    <th className="py-2 px-3 border-r border-slate-300 text-center w-24">Stock</th>
+                    <th className="py-2 px-3 border-r border-slate-300 text-right w-28">MRP</th>
+                    <th className="py-2 px-3 text-center w-20">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredProducts.map((prod, idx) => {
+                    const isSelected = idx === selectedProductIndex;
+                    const isLowStock = prod.currentStock <= prod.minStockThreshold;
+                    return (
+                      <tr
+                        key={prod.id}
+                        onClick={() => {
+                          setSelectedProductIndex(idx);
+                        }}
+                        onDoubleClick={() => addToCart(prod, 1)}
+                        className={`transition-colors cursor-pointer select-none ${
+                          isSelected
+                            ? 'bg-[#2563eb] text-white font-medium hover:bg-[#1d4ed8]'
+                            : idx % 2 === 0
+                            ? 'bg-white hover:bg-amber-50/50 text-slate-800'
+                            : 'bg-[#FAF8F5] hover:bg-amber-50/50 text-slate-800'
+                        }`}
+                      >
+                        {/* Code Column with active selection indicator arrow ▸ */}
+                        <td className="py-2 px-3 border-r border-slate-300/60 font-mono font-bold whitespace-nowrap">
+                          <span className="flex items-center gap-1">
+                            {isSelected ? (
+                              <span className="text-amber-300 font-black">▸</span>
+                            ) : (
+                              <span className="inline-block w-2.5"></span>
+                            )}
+                            <span>{prod.sku}</span>
+                          </span>
+                        </td>
+
+                        {/* Item Name Column */}
+                        <td className="py-2 px-3 border-r border-slate-300/60 font-semibold truncate max-w-[200px] md:max-w-[320px]">
+                          <span>{prod.name}</span>
+                          {prod.brand && (
+                            <span className={`text-[10px] ml-1.5 ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
+                              ({prod.brand})
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Category Column */}
+                        <td className="py-2 px-3 border-r border-slate-300/60 hidden md:table-cell truncate">
+                          <span className={isSelected ? 'text-blue-100' : 'text-slate-600'}>
+                            {prod.category}
+                          </span>
+                        </td>
+
+                        {/* Stock Column */}
+                        <td className="py-2 px-3 border-r border-slate-300/60 text-center font-mono whitespace-nowrap">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-bold ${
+                              isSelected
+                                ? 'bg-white/20 text-white'
+                                : isLowStock
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {prod.currentStock.toLocaleString()} {prod.unit}
+                          </span>
+                        </td>
+
+                        {/* MRP Column */}
+                        <td className="py-2 px-3 border-r border-slate-300/60 text-right font-mono font-extrabold text-sm whitespace-nowrap">
+                          {settings.currencySymbol}
+                          {Number(prod.regularPrice).toFixed(3)}
+                        </td>
+
+                        {/* Action Column */}
+                        <td className="py-1.5 px-2 text-center whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(prod, 1);
+                            }}
+                            className={`px-2 py-1 text-[11px] font-bold rounded-md shadow-2xs transition-transform active:scale-95 cursor-pointer ${
+                              isSelected
+                                ? 'bg-white text-[#2563eb] hover:bg-blue-50'
+                                : 'bg-[#C49A45] text-white hover:bg-[#a88235]'
+                            }`}
+                          >
+                            + Add
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-14 text-center text-slate-400">
+                        <Boxes className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                        <p className="font-semibold text-slate-700">No products match search criteria</p>
+                        <p className="text-xs text-slate-500">Check spelling or create the item in Inventory</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ERP Footer Status Bar matching Image 1 */}
+            <div className="px-3 py-1.5 bg-[#E6E6E6] border-t border-slate-300 flex items-center justify-between text-xs text-slate-700 select-none">
+              <div className="flex items-center gap-1 font-mono">
+                <button
+                  type="button"
+                  title="First Record"
+                  disabled={selectedProductIndex <= 0 || filteredProducts.length === 0}
+                  onClick={() => setSelectedProductIndex(0)}
+                  className="p-1 rounded hover:bg-slate-300 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Previous Record"
+                  disabled={selectedProductIndex <= 0 || filteredProducts.length === 0}
+                  onClick={() => setSelectedProductIndex((prev) => Math.max(0, prev - 1))}
+                  className="p-1 rounded hover:bg-slate-300 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="px-2 font-semibold text-slate-800">
+                  Record {filteredProducts.length > 0 ? selectedProductIndex + 1 : 0} of {filteredProducts.length}
+                </span>
+
+                <button
+                  type="button"
+                  title="Next Record"
+                  disabled={selectedProductIndex >= filteredProducts.length - 1 || filteredProducts.length === 0}
+                  onClick={() => setSelectedProductIndex((prev) => Math.min(filteredProducts.length - 1, prev + 1))}
+                  className="p-1 rounded hover:bg-slate-300 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Last Record"
+                  disabled={selectedProductIndex >= filteredProducts.length - 1 || filteredProducts.length === 0}
+                  onClick={() => setSelectedProductIndex(Math.max(0, filteredProducts.length - 1))}
+                  className="p-1 rounded hover:bg-slate-300 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-600">
+                <span className="bg-white px-2 py-0.5 rounded border border-slate-300 font-mono">
+                  Press [Enter] to Add
+                </span>
+                <span className="bg-white px-2 py-0.5 rounded border border-slate-300 font-mono">
+                  [↑ / ↓] to Navigate
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Product Cards Grid: Responsive 4 cols on 2xl, 3 on xl, 2 on sm/md/lg, 1 on mobile */
+          <div className="flex-1 p-3.5 sm:p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5 content-start">
+            {filteredProducts.map((prod) => {
+              const isLowStock = prod.currentStock <= prod.minStockThreshold;
+              return (
+                <div
+                  key={prod.id}
+                  onClick={() => addToCart(prod, 1)}
+                  className="p-3.5 rounded-2xl bg-white border border-[#EADBCE] product-card-hover hover:border-[#C49A45] hover:bg-[#C49A45] hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group select-none relative min-h-[160px]"
+                >
+                  <div>
+                    {/* Top Row: SKU badge & Brand */}
+                    <div className="flex items-center justify-between gap-1 text-[11px] mb-1.5">
+                      <span className="font-mono font-bold text-[#856324] group-hover:text-white bg-amber-50 group-hover:bg-white/20 px-2 py-0.5 rounded-md transition-colors truncate max-w-[120px]">
+                        {prod.sku}
+                      </span>
+                      <span className="font-semibold text-slate-500 group-hover:text-white/90 transition-colors text-right truncate text-[11px]">
+                        {prod.brand || 'General'}
+                      </span>
+                    </div>
+
+                    {/* Product Name */}
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-white transition-colors line-clamp-2 leading-snug mb-0.5">
+                      {prod.name}
+                    </h4>
+
+                    {/* Category */}
+                    <p className="text-xs text-slate-500 group-hover:text-white/80 transition-colors truncate">
+                      {prod.category}
+                    </p>
+                  </div>
+
+                  {/* Bottom Info Section */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 group-hover:border-white/20 transition-colors space-y-2">
+                    {/* Stock Badge & Min Price Row */}
+                    <div className="flex items-center justify-between gap-1 text-[11px]">
+                      <span
+                        className={`inline-flex items-center gap-1 font-mono font-bold px-2 py-0.5 rounded-md transition-colors whitespace-nowrap ${
+                          isLowStock
+                            ? 'bg-rose-50 text-rose-700 group-hover:bg-rose-900/40 group-hover:text-white'
+                            : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-900/40 group-hover:text-white'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${isLowStock ? 'bg-rose-500' : 'bg-emerald-500'} group-hover:bg-white`} />
+                        Stock: {prod.currentStock.toLocaleString()} {prod.unit}
+                      </span>
+
+                      <span className="text-[10px] text-slate-400 group-hover:text-white/70 transition-colors font-mono whitespace-nowrap">
+                        Min: {settings.currencySymbol}{prod.minSellingPrice.toLocaleString()}
+                      </span>
+                    </div>
+
+                    {/* Price & Add to Cart Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-mono leading-none">
+                        <span className="text-base sm:text-lg font-extrabold text-slate-900 group-hover:text-white transition-colors tabular-nums">
+                          {settings.currencySymbol}{prod.regularPrice.toLocaleString()}
+                        </span>
+                        <span className="text-xs text-slate-400 group-hover:text-white/80 font-normal ml-0.5">
+                          /{prod.unit}
+                        </span>
+                      </div>
+
+                      <div className="px-2.5 py-1 text-xs font-bold rounded-lg bg-[#C49A45] group-hover:bg-white text-white group-hover:text-[#856324] shadow-xs transition-colors shrink-0 whitespace-nowrap flex items-center gap-1">
+                        <span>+ Add</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredProducts.length === 0 && (
+              <div className="col-span-full py-16 text-center text-slate-400 space-y-2">
+                <Boxes className="w-10 h-10 mx-auto text-slate-300" />
+                <p className="text-sm font-semibold text-slate-700">No products match search criteria</p>
+                <p className="text-xs text-slate-500">Go to "Inventory & Yard" to add or edit catalog products</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ========================================================= */}
@@ -421,7 +681,7 @@ export const POSModule: React.FC = () => {
         mobileActiveView === 'cart' ? 'flex' : 'hidden lg:flex'
       }`}>
         {/* Customer Header */}
-        <div className="p-3.5 bg-white border-b border-[#EADBCE] space-y-2">
+        <div className="p-3.5 bg-white border-b border-[#EADBCE] space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <Building className="w-3.5 h-3.5 text-[#C49A45]" />
@@ -436,9 +696,18 @@ export const POSModule: React.FC = () => {
             </button>
           </div>
 
+          {/* Customer Dropdown */}
           <select
             value={selectedCustomerId}
-            onChange={(e) => setSelectedCustomerId(e.target.value)}
+            onChange={(e) => {
+              setSelectedCustomerId(e.target.value);
+              const found = customers.find((c) => c.id === e.target.value);
+              if (found) {
+                setCustomerSearchText(found.name);
+              } else {
+                setCustomerSearchText('');
+              }
+            }}
             className="w-full px-3 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45] font-medium cursor-pointer"
           >
             <option value="">Walk-in Cash Customer</option>
@@ -449,23 +718,119 @@ export const POSModule: React.FC = () => {
             ))}
           </select>
 
-          {selectedCustomer ? (
-            <div className="p-2.5 rounded-xl bg-[#FEFAF3] border border-[#EADBCE] text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900">{selectedCustomer.name}</span>
-                {selectedCustomer.currentDue > 0 && (
-                  <span className="text-[11px] font-mono font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                    Existing Due: {settings.currencySymbol}{selectedCustomer.currentDue.toLocaleString()}
-                  </span>
+          {/* Search bar directly above Customer Name input as marked in Image 2 */}
+          <div className="relative">
+            <div className="relative flex items-center">
+              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-[#C49A45]" />
+              <input
+                type="text"
+                placeholder="Search previous customer by Name or Mobile..."
+                value={customerSearchText}
+                onChange={(e) => {
+                  setCustomerSearchText(e.target.value);
+                  setShowCustomerSuggestions(true);
+                }}
+                onFocus={() => setShowCustomerSuggestions(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && matchingCustomers.length > 0) {
+                    e.preventDefault();
+                    const cust = matchingCustomers[0];
+                    setSelectedCustomerId(cust.id);
+                    setCustomerSearchText(cust.name);
+                    setShowCustomerSuggestions(false);
+                  }
+                }}
+                className="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-amber-300/80 focus:border-[#C49A45] text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C49A45] font-medium"
+              />
+              {customerSearchText && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomerSearchText('');
+                    setShowCustomerSuggestions(false);
+                  }}
+                  className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Instant suggestions list when typing in search bar */}
+            {showCustomerSuggestions && customerSearchText.trim().length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#EADBCE] rounded-xl shadow-xl z-30 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                {matchingCustomers.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-slate-500">
+                    No previous customer found with "{customerSearchText}"
+                  </div>
+                ) : (
+                  matchingCustomers.map((cust) => (
+                    <button
+                      key={cust.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCustomerId(cust.id);
+                        setCustomerSearchText(cust.name);
+                        setShowCustomerSuggestions(false);
+                      }}
+                      className="w-full p-2.5 text-left hover:bg-amber-50/70 flex items-center justify-between text-xs transition-colors cursor-pointer"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-900">{cust.name}</p>
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1 font-mono">
+                          <Phone className="w-3 h-3 text-[#C49A45]" />
+                          {cust.phone || 'No phone'} &middot; {cust.address || 'Dhaka'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        {cust.currentDue > 0 ? (
+                          <span className="text-[11px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 font-mono">
+                            Due: {settings.currencySymbol}{cust.currentDue.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                            No Due
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))
                 )}
               </div>
+            )}
+          </div>
+
+          {/* Selected Customer Details OR Walk-in Input Fields (directly below Search Bar) */}
+          {selectedCustomer ? (
+            <div className="p-2.5 rounded-xl bg-[#FEFAF3] border border-[#EADBCE] text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 text-sm">{selectedCustomer.name}</span>
+                <div className="flex items-center gap-1.5">
+                  {selectedCustomer.currentDue > 0 && (
+                    <span className="text-[11px] font-mono font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                      Due: {settings.currencySymbol}{selectedCustomer.currentDue.toLocaleString()}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCustomerId('');
+                      setCustomerSearchText('');
+                    }}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                  >
+                    Switch to Walk-in
+                  </button>
+                </div>
+              </div>
               <div className="text-[11px] text-slate-600 flex flex-wrap gap-x-3">
-                <span>Phone: {selectedCustomer.phone || 'N/A'}</span>
+                <span className="font-mono">Phone: {selectedCustomer.phone || 'N/A'}</span>
                 <span>Address: {selectedCustomer.address || 'Dhaka'}</span>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
               <input
                 type="text"
                 placeholder="Customer Name (Optional)"

@@ -687,9 +687,9 @@ export const InventoryModule: React.FC = () => {
             </h3>
             <form onSubmit={handleInwardSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Select Material *</label>
+                <label className="block text-slate-700 font-bold mb-1">Select Material * (Code | Item Name | Stock | MRP)</label>
                 <div className="mb-2 relative">
-                  <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
+                  <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search material by name, SKU, barcode (Press Enter to select)..."
@@ -705,20 +705,70 @@ export const InventoryModule: React.FC = () => {
                         }
                       }
                     }}
-                    className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-emerald-500"
+                    className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-emerald-500 font-medium"
                   />
                 </div>
-                <select
-                  value={inwardProductId}
-                  onChange={(e) => setInwardProductId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-emerald-500"
-                >
-                  {filteredInwardProducts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.sku}) &middot; Stock: {p.currentStock} {p.unit}
-                    </option>
-                  ))}
-                </select>
+
+                {/* ERP Row & Column Table for Material Selection matching Image 1 */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto mb-2">
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead className="bg-[#EBEBEB] text-slate-700 font-bold border-b border-slate-300 sticky top-0 z-10">
+                      <tr>
+                        <th className="py-1 px-2 border-r border-slate-300 w-24">Code</th>
+                        <th className="py-1 px-2 border-r border-slate-300">Item Name</th>
+                        <th className="py-1 px-2 border-r border-slate-300 text-center w-20">Stock</th>
+                        <th className="py-1 px-2 text-right w-20">MRP</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredInwardProducts.slice(0, 50).map((p) => {
+                        const isSelected = p.id === inwardProductId;
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={() => {
+                              setInwardProductId(p.id);
+                              inwardQtyInputRef.current?.focus();
+                              inwardQtyInputRef.current?.select();
+                            }}
+                            className={`cursor-pointer transition-colors select-none ${
+                              isSelected
+                                ? 'bg-[#2563eb] text-white font-bold'
+                                : 'hover:bg-amber-50 text-slate-800'
+                            }`}
+                          >
+                            <td className="py-1 px-2 border-r border-slate-200/50 font-mono whitespace-nowrap">
+                              <span className="flex items-center gap-1">
+                                {isSelected ? (
+                                  <span className="text-amber-300">▸</span>
+                                ) : (
+                                  <span className="inline-block w-2"></span>
+                                )}
+                                <span>{p.sku}</span>
+                              </span>
+                            </td>
+                            <td className="py-1 px-2 border-r border-slate-200/50 truncate max-w-[150px]">
+                              {p.name}
+                            </td>
+                            <td className="py-1 px-2 border-r border-slate-200/50 text-center font-mono whitespace-nowrap">
+                              {p.currentStock} {p.unit}
+                            </td>
+                            <td className="py-1 px-2 text-right font-mono font-bold whitespace-nowrap">
+                              {settings.currencySymbol}{Number(p.regularPrice).toFixed(3)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredInwardProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-4 text-center text-slate-400">
+                            No materials found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {selectedInwardProd && (

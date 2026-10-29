@@ -21,6 +21,7 @@ import {
   DailyFinancialReportRecord,
   DueRecord,
   ProfitAnalyticsRecord,
+  CashWithdrawal,
 } from '../types';
 import { INITIAL_USERS } from '../data/initialData';
 import { StorageService } from '../services/storage';
@@ -204,6 +205,16 @@ export interface POSContextType {
   restoreAdminUserInFirebase: () => Promise<{ success: boolean; message: string }>;
   syncDailyReportToFirestore: (targetDate?: string) => void;
   syncProfitAnalyticsToFirestore: () => void;
+  cashWithdrawals: CashWithdrawal[];
+  recordCashWithdrawal: (data: {
+    date: string;
+    amount: number;
+    withdrawnBy: string;
+    purpose?: string;
+    note?: string;
+    closingCashBefore: number;
+  }) => Promise<{ success: boolean; message: string }>;
+  deleteCashWithdrawal: (id: string) => Promise<{ success: boolean }>;
 }
 
 const POSContext = createContext<POSContextType | undefined>(undefined);
@@ -241,6 +252,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
   const [customerTransactions, setCustomerTransactions] = useState<CustomerLedgerTransaction[]>(() =>
     StorageService.getCustomerTransactions()
+  );
+  const [cashWithdrawals, setCashWithdrawals] = useState<CashWithdrawal[]>(() =>
+    StorageService.getCashWithdrawals()
   );
   const [selectedCustomerIdForPOS, setSelectedCustomerIdForPOS] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -378,6 +392,11 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Keep profit analytics collection connected & hot
     });
 
+    const unsubWithdrawals = FirebaseSyncService.listenToCashWithdrawals((cloudWths) => {
+      setCashWithdrawals(cloudWths);
+      StorageService.saveCashWithdrawals(cloudWths);
+    });
+
     // Seed/sync active daily report, dues, and profit analytics to Firestore on startup
     const seedAnalyticsTimer = setTimeout(() => {
       try {
@@ -408,6 +427,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubDailyReports();
       unsubDueRecords();
       unsubProfitAnalytics();
+      unsubWithdrawals();
     };
   }, []);
 
@@ -2215,6 +2235,10 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const opening = settings.openingCashBalance || 0;
       const closingCash = opening + dayCashInflow - dayCashOutflow;
 
+      const dayWths = (cashWithdrawals || []).filter((w) => w.date === dateToSync);
+      const dayWithdrawn = dayWths.reduce((sum, w) => sum + w.amount, 0);
+      const remainingCash = Math.max(0, closingCash - dayWithdrawn);
+
       const reportRecord: DailyFinancialReportRecord = {
         id: dateToSync,
         reportDate: dateToSync,
@@ -2230,6 +2254,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dayCashInflow,
         dayCashOutflow,
         closingCash,
+        cashWithdrawn: dayWithdrawn,
+        remainingCashBalance: remainingCash,
         invoicesCount: dayInvs.length,
         expensesCount: dayExps.length,
         updatedAt: new Date().toISOString(),
@@ -2237,6 +2263,83 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       FirebaseSyncService.saveDailyFinancialReport(reportRecord).catch(console.warn);
     } catch (err) {
       console.warn('Could not sync daily financial report to Firestore:', err);
+    }
+  };
+
+  const recordCashWithdrawal = async (data: {
+    date: string;
+    amount: number;
+    withdrawnBy: string;
+    purpose?: string;
+    note?: string;
+    closingCashBefore: number;
+  }): Promise<{ success: boolean; message: string }> => {
+    try {
+      const remainingAfter = Math.max(0, data.closingCashBefore - data.amount);
+      const newWithdrawal: CashWithdrawal = {
+        id: `wth_${Date.now()}`,
+        date: data.date,
+        amount: data.amount,
+        withdrawnBy: data.withdrawnBy || currentUser.name,
+        purpose: data.purpose || 'Owner Draw / Bank Deposit',
+        note: data.note || '',
+        closingCashBefore: data.closingCashBefore,
+        remainingAfter,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [newWithdrawal, ...cashWithdrawals];
+      setCashWithdrawals(updated);
+      StorageService.saveCashWithdrawals(updated);
+      await FirebaseSyncService.saveCashWithdrawal(newWithdrawal);
+
+      // Trigger automatic update of daily financial report in Firebase
+      setTimeout(() => {
+        syncDailyReportToFirestore(data.date);
+      }, 50);
+
+      StorageService.logAction(
+        currentUser.id,
+        currentUser.name,
+        'SETTINGS_CHANGED',
+        'CASH_WITHDRAWAL',
+        newWithdrawal.id,
+        `Cash Withdrawn: ${settings.currencySymbol}${data.amount.toLocaleString()} on ${data.date}. Remaining balance: ${settings.currencySymbol}${remainingAfter.toLocaleString()} by ${data.withdrawnBy}`
+      );
+      setAuditLogs(StorageService.getAuditLogs());
+
+      return { success: true, message: 'Cash withdrawal recorded and synced to Firebase!' };
+    } catch (err) {
+      console.error('Failed to record cash withdrawal:', err);
+      return { success: false, message: 'Failed to record cash withdrawal.' };
+    }
+  };
+
+  const deleteCashWithdrawal = async (id: string): Promise<{ success: boolean }> => {
+    try {
+      const target = cashWithdrawals.find((w) => w.id === id);
+      const updated = cashWithdrawals.filter((w) => w.id !== id);
+      setCashWithdrawals(updated);
+      StorageService.saveCashWithdrawals(updated);
+      await FirebaseSyncService.deleteCashWithdrawal(id);
+
+      if (target) {
+        setTimeout(() => {
+          syncDailyReportToFirestore(target.date);
+        }, 50);
+        StorageService.logAction(
+          currentUser.id,
+          currentUser.name,
+          'SETTINGS_CHANGED',
+          'CASH_WITHDRAWAL',
+          id,
+          `Cancelled cash withdrawal of ${settings.currencySymbol}${target.amount.toLocaleString()} for date ${target.date}`
+        );
+        setAuditLogs(StorageService.getAuditLogs());
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('Failed to delete cash withdrawal:', err);
+      return { success: false };
     }
   };
 
@@ -2305,6 +2408,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setAuditLogs(StorageService.getAuditLogs());
       setStockAdjustments(StorageService.getStockAdjustments());
       setCustomerTransactions(StorageService.getCustomerTransactions());
+      setCashWithdrawals(StorageService.getCashWithdrawals());
     }
     return res;
   };
@@ -2332,6 +2436,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExpenses([]);
     setInvoices([]);
     setCustomerTransactions([]);
+    setCashWithdrawals([]);
     setAuditLogs(StorageService.getAuditLogs());
     setStockAdjustments([]);
     clearCart();
@@ -2563,6 +2668,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         restoreAdminUserInFirebase,
         syncDailyReportToFirestore,
         syncProfitAnalyticsToFirestore,
+        cashWithdrawals,
+        recordCashWithdrawal,
+        deleteCashWithdrawal,
       }}
     >
       {children}

@@ -360,6 +360,18 @@ export interface AuditLog {
   status: 'SUCCESS' | 'BLOCKED_GUARDRAIL' | 'OVERRIDE_APPROVED';
 }
 
+export interface CashWithdrawal {
+  id: string;
+  date: string; // YYYY-MM-DD
+  amount: number;
+  withdrawnBy: string;
+  purpose?: string;
+  note?: string;
+  closingCashBefore: number;
+  remainingAfter: number;
+  createdAt: string;
+}
+
 export interface DailyFinancialReportRecord {
   id: string; // YYYY-MM-DD
   reportDate: string;
@@ -375,6 +387,8 @@ export interface DailyFinancialReportRecord {
   dayCashInflow: number;
   dayCashOutflow: number;
   closingCash: number;
+  cashWithdrawn?: number;
+  remainingCashBalance?: number;
   invoicesCount: number;
   expensesCount: number;
   updatedAt: string;

@@ -225,11 +225,30 @@
         "dayCashInflow": { "type": "number" },
         "dayCashOutflow": { "type": "number" },
         "closingCash": { "type": "number" },
+        "cashWithdrawn": { "type": "number" },
+        "remainingCashBalance": { "type": "number" },
         "invoicesCount": { "type": "number" },
         "expensesCount": { "type": "number" },
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "reportDate"]
+    },
+    "CashWithdrawal": {
+      "title": "CashWithdrawal",
+      "description": "Daily cash withdrawals from closing cash drawer with remaining balance tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "amount": { "type": "number" },
+        "withdrawnBy": { "type": "string" },
+        "purpose": { "type": "string" },
+        "note": { "type": "string" },
+        "closingCashBefore": { "type": "number" },
+        "remainingAfter": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "date", "amount", "withdrawnBy", "createdAt"]
     },
     "DueRecord": {
       "title": "DueRecord",
@@ -323,6 +342,10 @@
     "/due_management/{dueId}": {
       "schema": "DueRecord",
       "description": "Dedicated customer due records and receivable balances"
+    },
+    "/cash_withdrawals/{withdrawalId}": {
+      "schema": "CashWithdrawal",
+      "description": "Store daily cash withdrawals and remaining balance tracking records"
     },
     "/profit_analytics/{analyticsId}": {
       "schema": "ProfitAnalyticsRecord",

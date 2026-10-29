@@ -709,6 +709,9 @@ export interface DailyReportPrintParams {
   dayCashExpenses: number;
   dayCashRefunds: number;
   estimatedClosingCash: number;
+  cashWithdrawnToday?: number;
+  remainingCashBalance?: number;
+  withdrawals?: { id?: string; amount: number; withdrawnBy: string; purpose?: string; note?: string; createdAt: string }[];
   invoices: Invoice[];
   expenses: { id: string; category: string; description: string; amount: number; paidVia: string }[];
 }
@@ -745,6 +748,16 @@ export function printDailyReportSafely(data: DailyReportPrintParams) {
         <td style="padding: 6px 8px;">${exp.description}</td>
         <td style="padding: 6px 8px; text-transform: capitalize; color: #64748b;">${exp.paidVia}</td>
         <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #e11d48; font-weight: bold; white-space: nowrap;">${data.settings.currencySymbol} ${exp.amount.toLocaleString()}</td>
+      </tr>
+    `).join('');
+
+    const withdrawalRows = (data.withdrawals || []).map((wth) => `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 6px 8px; font-weight: bold; color: #991b1b;">${data.settings.currencySymbol} ${wth.amount.toLocaleString()}</td>
+        <td style="padding: 6px 8px; font-weight: 600;">${wth.withdrawnBy}</td>
+        <td style="padding: 6px 8px; color: #475569;">${wth.purpose || 'Owner Draw / Bank'}</td>
+        <td style="padding: 6px 8px; color: #64748b;">${wth.note || '-'}</td>
+        <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #64748b;">${new Date(wth.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
       </tr>
     `).join('');
 
@@ -799,26 +812,50 @@ export function printDailyReportSafely(data: DailyReportPrintParams) {
     </div>
   </div>
 
-  <div class="cash-grid">
+  <div class="cash-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px;">
     <div>
-      <div style="font-size: 9px; color: #92400e; font-weight: bold; text-transform: uppercase;">Opening Cash Capital</div>
-      <div style="font-size: 14px; font-weight: 800; color: #b45309; font-family: monospace; white-space: nowrap;">${data.settings.currencySymbol} ${data.openingCashBalance.toLocaleString()}</div>
+      <div style="font-size: 9px; color: #92400e; font-weight: bold; text-transform: uppercase;">Opening Capital</div>
+      <div style="font-size: 13px; font-weight: 800; color: #b45309; font-family: monospace; white-space: nowrap;">${data.settings.currencySymbol} ${data.openingCashBalance.toLocaleString()}</div>
     </div>
     <div>
       <div style="font-size: 9px; color: #166534; font-weight: bold; text-transform: uppercase;">Cash Inflow Today</div>
-      <div style="font-size: 14px; font-weight: 800; color: #16a34a; font-family: monospace; white-space: nowrap;">+${data.settings.currencySymbol} ${(data.dayTotalPaidCash + data.dayDuesCollectedCash).toLocaleString()}</div>
-      <div style="font-size: 8px; color: #64748b;">Sales & dues collected</div>
+      <div style="font-size: 13px; font-weight: 800; color: #16a34a; font-family: monospace; white-space: nowrap;">+${data.settings.currencySymbol} ${(data.dayTotalPaidCash + data.dayDuesCollectedCash).toLocaleString()}</div>
+      <div style="font-size: 8px; color: #64748b;">Sales & dues</div>
     </div>
     <div>
       <div style="font-size: 9px; color: #991b1b; font-weight: bold; text-transform: uppercase;">Cash Outflow Today</div>
-      <div style="font-size: 14px; font-weight: 800; color: #e11d48; font-family: monospace; white-space: nowrap;">-${data.settings.currencySymbol} ${(data.dayCashExpenses + data.dayCashRefunds).toLocaleString()}</div>
+      <div style="font-size: 13px; font-weight: 800; color: #e11d48; font-family: monospace; white-space: nowrap;">-${data.settings.currencySymbol} ${(data.dayCashExpenses + data.dayCashRefunds).toLocaleString()}</div>
       <div style="font-size: 8px; color: #64748b;">Expenses & refunds</div>
     </div>
     <div>
-      <div style="font-size: 9px; color: #0f172a; font-weight: bold; text-transform: uppercase;">Closing Cash in Drawer</div>
-      <div style="font-size: 14px; font-weight: 800; color: #0f172a; font-family: monospace; white-space: nowrap;">${data.settings.currencySymbol} ${data.estimatedClosingCash.toLocaleString()}</div>
+      <div style="font-size: 9px; color: #991b1b; font-weight: bold; text-transform: uppercase;">Cash Withdrawn</div>
+      <div style="font-size: 13px; font-weight: 800; color: #b91c1c; font-family: monospace; white-space: nowrap;">-${data.settings.currencySymbol} ${(data.cashWithdrawnToday || 0).toLocaleString()}</div>
+      <div style="font-size: 8px; color: #64748b;">Daily owner draw</div>
+    </div>
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 4px 6px;">
+      <div style="font-size: 9px; color: #15803d; font-weight: bold; text-transform: uppercase;">Remaining Balance</div>
+      <div style="font-size: 14px; font-weight: 800; color: #15803d; font-family: monospace; white-space: nowrap;">${data.settings.currencySymbol} ${(data.remainingCashBalance !== undefined ? data.remainingCashBalance : data.estimatedClosingCash).toLocaleString()}</div>
+      <div style="font-size: 8px; color: #166534;">In safe/drawer</div>
     </div>
   </div>
+
+  ${(data.withdrawals && data.withdrawals.length > 0) ? `
+  <h4 style="margin: 10px 0 4px 0; font-size: 12px; font-weight: bold; color: #991b1b;">Cash Withdrawals for Date (${data.withdrawals.length})</h4>
+  <table>
+    <thead>
+      <tr style="background: #991b1b; color: white;">
+        <th>Amount</th>
+        <th>Withdrawn By</th>
+        <th>Purpose / Reason</th>
+        <th>Note</th>
+        <th style="text-align: right;">Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${withdrawalRows}
+    </tbody>
+  </table>
+  ` : ''}
 
   <h4 style="margin: 10px 0 4px 0; font-size: 12px; font-weight: bold;">Daily Sales Invoices (${data.invoices.length})</h4>
   <table>
