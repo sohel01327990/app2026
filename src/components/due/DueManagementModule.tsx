@@ -54,18 +54,30 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
   const [newCustAddress, setNewCustAddress] = useState('');
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
-  // Active Due Customers (currentDue > 0)
+  // Helper to calculate effective due from invoices or customer record
+  const getCustomerEffectiveDue = (c: Customer) => {
+    const custInvs = invoices.filter(
+      (inv) =>
+        inv.dueAmount > 0 &&
+        inv.status !== 'cancelled' &&
+        (inv.customerId === c.id || inv.customerName === c.name)
+    );
+    const sumInvs = custInvs.reduce((sum, inv) => sum + (Number(inv.dueAmount) || 0), 0);
+    return custInvs.length > 0 ? sumInvs : (Number(c.currentDue) || 0);
+  };
+
+  // Active Due Customers (currentDue > 0 or has unpaid invoices)
   const activeDueCustomers = useMemo(() => {
-    return customers.filter((c) => c.currentDue > 0);
-  }, [customers]);
+    return customers.filter((c) => getCustomerEffectiveDue(c) > 0);
+  }, [customers, invoices]);
 
   const activeDueInvoices = useMemo(() => {
     return invoices.filter((inv) => inv.dueAmount > 0 && inv.status !== 'cancelled');
   }, [invoices]);
 
   const totalReceivableDue = useMemo(() => {
-    return activeDueCustomers.reduce((sum, c) => sum + c.currentDue, 0);
-  }, [activeDueCustomers]);
+    return activeDueCustomers.reduce((sum, c) => sum + getCustomerEffectiveDue(c), 0);
+  }, [activeDueCustomers, invoices]);
 
   const filteredDueCustomers = useMemo(() => {
     return activeDueCustomers.filter((c) => {
@@ -126,6 +138,12 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
     );
   }, [invoices, selectedCustForPayment]);
 
+  const totalCombinedInvoicesDue = useMemo(() => {
+    if (!selectedCustForPayment) return 0;
+    const invSum = customerDueInvoices.reduce((sum, inv) => sum + (Number(inv.dueAmount) || 0), 0);
+    return customerDueInvoices.length > 0 ? invSum : (Number(selectedCustForPayment.currentDue) || 0);
+  }, [customerDueInvoices, selectedCustForPayment]);
+
   // Open Receive Due Modal from Customer Dues
   const handleOpenReceiveDue = (cust: Customer) => {
     setSelectedCustForPayment(cust);
@@ -135,20 +153,23 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
         inv.status !== 'cancelled' &&
         (inv.customerId === cust.id || inv.customerName === cust.name)
     );
+    const totalInvsSum = custInvs.reduce((sum, inv) => sum + (Number(inv.dueAmount) || 0), 0);
+    const effectiveTotalDue = custInvs.length > 0 ? totalInvsSum : (Number(cust.currentDue) || 0);
+
     if (custInvs.length > 1) {
-      // If multiple invoices exist, default to All Invoices / Total Due so user can collect up to the total amount
+      // If multiple invoices exist, default to Total Due so user can collect up to the total sum of all invoices
       setSelectedInvoiceForPayment(null);
-      setPaymentAmount(cust.currentDue > 0 ? Number(cust.currentDue.toFixed(3)) : 0);
+      setPaymentAmount(effectiveTotalDue > 0 ? Number(effectiveTotalDue.toFixed(3)) : 0);
       setPaymentReference('ALL-INVOICES');
       setPaymentNotes(`Cash settlement of total due from ${cust.name}`);
     } else if (custInvs.length === 1) {
       setSelectedInvoiceForPayment(custInvs[0]);
-      setPaymentAmount(Number(custInvs[0].dueAmount.toFixed(3)));
+      setPaymentAmount(Number(Number(custInvs[0].dueAmount).toFixed(3)));
       setPaymentReference(`INV-${custInvs[0].id}`);
       setPaymentNotes(`Settlement of Invoice #${custInvs[0].id}`);
     } else {
       setSelectedInvoiceForPayment(null);
-      setPaymentAmount(cust.currentDue > 0 ? Number(cust.currentDue.toFixed(3)) : 0);
+      setPaymentAmount(effectiveTotalDue > 0 ? Number(effectiveTotalDue.toFixed(3)) : 0);
       setPaymentReference('');
       setPaymentNotes(`Cash settlement of due from ${cust.name}`);
     }
@@ -197,12 +218,12 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
     }
 
     const maxAllowed = selectedInvoiceForPayment
-      ? selectedInvoiceForPayment.dueAmount
-      : selectedCustForPayment.currentDue;
+      ? Number(selectedInvoiceForPayment.dueAmount)
+      : totalCombinedInvoicesDue;
 
-    if (payNum > maxAllowed) {
+    if (payNum > maxAllowed + 0.0001) {
       setPaymentError(
-        `Payment amount cannot exceed total due of ${settings.currencySymbol}${maxAllowed.toLocaleString()}.`
+        `Payment amount cannot exceed total due of ${settings.currencySymbol}${maxAllowed.toFixed(3)}.`
       );
       return;
     }
@@ -268,13 +289,11 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
   };
 
   const currentModalMax = selectedInvoiceForPayment
-    ? selectedInvoiceForPayment.dueAmount
-    : selectedCustForPayment
-    ? selectedCustForPayment.currentDue
-    : 0;
+    ? Number(selectedInvoiceForPayment.dueAmount)
+    : totalCombinedInvoicesDue;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto font-sans text-slate-800 bg-[#FEFAF3]">
+    <div className="p-4 sm:p-6 pb-28 space-y-6 max-w-7xl mx-auto font-sans text-slate-800 bg-[#FEFAF3]">
       {toastMessage && (
         <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
           <div className="flex items-center gap-2">
@@ -410,7 +429,7 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                       {settings.currencySymbol}{c.totalPurchases.toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-extrabold text-rose-600 text-sm tabular-nums">
-                      {settings.currencySymbol}{c.currentDue.toLocaleString()}
+                      {settings.currencySymbol}{getCustomerEffectiveDue(c).toFixed(3)}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
@@ -692,7 +711,7 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                   </span>
                 ) : (
                   <span className="text-[10px] text-emerald-700 font-mono font-bold block mt-0.5">
-                    Target: All Invoices (Total Due / সর্বমোট বকেয়া)
+                    Target: Total Due ({customerDueInvoices.length} Invoices)
                   </span>
                 )}
               </div>
@@ -710,7 +729,7 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
             {customerDueInvoices.length > 0 && (
               <div className="space-y-1.5">
                 <span className="text-[11px] font-bold text-slate-700 block">
-                  Select Due Invoice or All Invoices (ইনভয়েস সিলেক্ট করুন অথবা সর্বমোট বকেয়া):
+                  Select Due Invoice or Total Due:
                 </span>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 border border-slate-200 rounded-xl p-2 bg-[#FEFAF3]">
                   {/* Individual Invoices */}
@@ -721,7 +740,7 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                         key={inv.id}
                         onClick={() => {
                           setSelectedInvoiceForPayment(inv);
-                          setPaymentAmount(Number(inv.dueAmount.toFixed(3)));
+                          setPaymentAmount(Number(Number(inv.dueAmount).toFixed(3)));
                           setPaymentReference(`INV-${inv.id}`);
                           setPaymentNotes(`Settlement of Invoice #${inv.id}`);
                         }}
@@ -753,7 +772,7 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                   <div
                     onClick={() => {
                       setSelectedInvoiceForPayment(null);
-                      setPaymentAmount(Number(selectedCustForPayment.currentDue.toFixed(3)));
+                      setPaymentAmount(Number(totalCombinedInvoicesDue.toFixed(3)));
                       setPaymentReference('ALL-INVOICES');
                       setPaymentNotes(`Settlement of all due invoices for ${selectedCustForPayment.name}`);
                     }}
@@ -771,17 +790,17 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                       </span>
                       <div>
                         <span className="font-bold text-slate-900 block text-xs">
-                          All Invoices / Total Due (সর্বমোট বকেয়া)
+                          Total Due
                         </span>
                         <span className="text-[10px] text-slate-500 block">
-                          যেকোনো পরিমাণ টাকা (সর্বমোট {settings.currencySymbol}{Number(selectedCustForPayment.currentDue).toFixed(3)} পর্যন্ত) গ্রহণ করুন
+                          Collect any amount up to total combined due ({settings.currencySymbol}{Number(totalCombinedInvoicesDue).toFixed(3)})
                         </span>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-500 block font-sans">Total Due:</span>
                       <span className="font-mono font-black text-rose-700 text-sm">
-                        {settings.currencySymbol}{Number(selectedCustForPayment.currentDue).toFixed(3)}
+                        {settings.currencySymbol}{Number(totalCombinedInvoicesDue).toFixed(3)}
                       </span>
                     </div>
                   </div>
@@ -804,7 +823,6 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                 <input
                   type="number"
                   min="0.001"
-                  max={currentModalMax}
                   step="0.001"
                   required
                   autoFocus

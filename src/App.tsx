@@ -114,7 +114,7 @@ const POSAppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FEFAF3] text-slate-900 flex flex-col font-sans antialiased selection:bg-[#C49A45]/20 selection:text-[#C49A45]">
+    <div className="bg-[#FEFAF3] text-slate-900 flex flex-col font-sans antialiased selection:bg-[#C49A45]/20 selection:text-[#C49A45] h-screen overflow-hidden">
       {/* Top Header */}
       <Header
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -126,7 +126,7 @@ const POSAppContent: React.FC = () => {
       />
 
       {/* Main Responsive Body: Sidebar + Main Content Viewport */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Navigation Sidebar */}
         <Sidebar
           activeTab={activeTab}
@@ -135,8 +135,8 @@ const POSAppContent: React.FC = () => {
           onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
 
-        {/* Active Content Module with #FEFAF3 background and smooth scroll */}
-        <main className={`flex-1 bg-[#FEFAF3] ${activeTab === 'pos' ? 'overflow-hidden flex flex-col h-full' : 'overflow-y-auto'}`}>
+        {/* Active Content Module: POS is fixed height inside, all other modules are fully scrollable to the bottom */}
+        <main className={`flex-1 bg-[#FEFAF3] min-h-0 ${activeTab === 'pos' ? 'overflow-hidden flex flex-col h-full' : 'overflow-y-auto'}`}>
           <React.Suspense fallback={<ModuleLoader />}>
             {activeTab === 'pos' && <POSModule />}
             {activeTab === 'inventory' && <InventoryModule />}

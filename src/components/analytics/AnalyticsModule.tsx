@@ -258,7 +258,7 @@ export const AnalyticsModule: React.FC = () => {
   const curr = settings.currencySymbol || 'OMR';
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto font-sans text-slate-900 bg-[#FEFAF3]">
+    <div className="p-4 sm:p-6 pb-28 space-y-6 max-w-7xl mx-auto font-sans text-slate-900 bg-[#FEFAF3]">
       {/* Header with Title and Day-Month-Year Range Picker Toolbar */}
       <div className="p-5 rounded-3xl bg-white border border-[#EADBCE] shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#EADBCE]">

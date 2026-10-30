@@ -211,7 +211,7 @@ export const InventoryModule: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto font-sans text-slate-800 bg-[#FEFAF3]">
+    <div className="p-4 sm:p-6 pb-28 space-y-6 max-w-7xl mx-auto font-sans text-slate-800 bg-[#FEFAF3]">
       {/* Top Header & Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-[#EADBCE]">
         <div>
@@ -326,17 +326,17 @@ export const InventoryModule: React.FC = () => {
       <div className="rounded-2xl bg-white border border-[#EADBCE] overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
-                <th className="py-3 px-4">Material / SKU</th>
-                <th className="py-3 px-4">Category</th>
+            <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-20 shadow-xs select-none">
+              <tr>
+                <th className="py-3 px-4 border-r border-slate-300">Material / SKU</th>
+                <th className="py-3 px-4 border-r border-slate-300">Category</th>
                 {currentRole.permissions.canViewPurchasePrice && (
-                  <th className="py-3 px-4 text-right">Cost Price</th>
+                  <th className="py-3 px-4 border-r border-slate-300 text-right">Cost Price</th>
                 )}
-                <th className="py-3 px-4 text-right">Selling Price</th>
-                <th className="py-3 px-4 text-right">Min Selling Price</th>
-                <th className="py-3 px-4 text-right">Stock Level</th>
-                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 border-r border-slate-300 text-right">Selling Price</th>
+                <th className="py-3 px-4 border-r border-slate-300 text-right">Min Selling Price</th>
+                <th className="py-3 px-4 border-r border-slate-300 text-right">Stock Level</th>
+                <th className="py-3 px-4 border-r border-slate-300 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Actions (Edit / Delete)</th>
               </tr>
             </thead>

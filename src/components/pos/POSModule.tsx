@@ -642,21 +642,21 @@ export const POSModule: React.FC = () => {
       {/* ========================================================= */}
       {/* RIGHT: POS Cart & Checkout                                */}
       {/* ========================================================= */}
-      <div className={`w-full lg:w-[460px] flex flex-col bg-white border-l border-[#EADBCE] overflow-hidden shrink-0 ${
+      <div className={`w-full lg:w-[420px] flex flex-col bg-white border-l border-[#EADBCE] overflow-hidden shrink-0 ${
         mobileActiveView === 'cart' ? 'flex' : 'hidden lg:flex'
       }`}>
-        {/* Customer Header (Compact View) */}
-        <div className="px-3 py-2 bg-white border-b border-[#EADBCE] space-y-1.5 shrink-0">
+        {/* Customer Header (Ultra-Compact View) */}
+        <div className="px-2.5 py-1.5 bg-white border-b border-[#EADBCE] space-y-1 shrink-0">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
-              <Building className="w-3 h-3 text-[#C49A45]" />
-              <span>Customer Information</span>
+            <span className="text-[10px] font-bold text-slate-800 flex items-center gap-1">
+              <Building className="w-2.5 h-2.5 text-[#C49A45]" />
+              <span>Customer</span>
             </span>
             <button
               onClick={() => setShowNewCustModal(true)}
-              className="text-[11px] text-[#C49A45] hover:text-[#a88235] font-bold flex items-center gap-0.5 cursor-pointer"
+              className="text-[10px] text-[#C49A45] hover:text-[#a88235] font-bold flex items-center gap-0.5 cursor-pointer"
             >
-              <UserPlus className="w-3 h-3" />
+              <UserPlus className="w-2.5 h-2.5" />
               <span>+ New</span>
             </button>
           </div>
@@ -673,7 +673,7 @@ export const POSModule: React.FC = () => {
                 setCustomerSearchText('');
               }
             }}
-            className="w-full px-2.5 py-1 text-xs rounded-lg bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45] font-medium cursor-pointer"
+            className="w-full px-2 py-0.5 text-[11px] rounded bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45] font-medium cursor-pointer"
           >
             <option value="">Walk-in Cash Customer</option>
             {customers.map((c) => (
@@ -686,10 +686,10 @@ export const POSModule: React.FC = () => {
           {/* Search bar directly above Customer Name input as marked in Image 2 */}
           <div className="relative">
             <div className="relative flex items-center">
-              <Search className="absolute left-2.5 top-2 w-3 h-3 text-[#C49A45]" />
+              <Search className="absolute left-2 top-1.5 w-3 h-3 text-[#C49A45]" />
               <input
                 type="text"
-                placeholder="Search customer by Name or Mobile..."
+                placeholder="Search by Name or Mobile..."
                 value={customerSearchText}
                 onChange={(e) => {
                   setCustomerSearchText(e.target.value);
@@ -705,7 +705,7 @@ export const POSModule: React.FC = () => {
                     setShowCustomerSuggestions(false);
                   }
                 }}
-                className="w-full pl-7 pr-6 py-1 text-xs rounded-lg bg-[#FEFAF3] border border-amber-300/80 focus:border-[#C49A45] text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C49A45] font-medium"
+                className="w-full pl-6 pr-5 py-0.5 text-[11px] rounded bg-[#FEFAF3] border border-amber-300/80 focus:border-[#C49A45] text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C49A45] font-medium"
               />
               {customerSearchText && (
                 <button
@@ -714,10 +714,10 @@ export const POSModule: React.FC = () => {
                     setCustomerSearchText('');
                     setShowCustomerSuggestions(false);
                   }}
-                  className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  className="absolute right-1.5 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                   title="Clear search"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-2.5 h-2.5" />
                 </button>
               )}
             </div>
@@ -726,7 +726,7 @@ export const POSModule: React.FC = () => {
             {showCustomerSuggestions && customerSearchText.trim().length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#EADBCE] rounded-xl shadow-xl z-30 max-h-56 overflow-y-auto divide-y divide-slate-100">
                 {matchingCustomers.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-slate-500">
+                  <div className="p-2 text-center text-xs text-slate-500">
                     No customer found with "{customerSearchText}"
                   </div>
                 ) : (
@@ -768,12 +768,12 @@ export const POSModule: React.FC = () => {
 
           {/* Selected Customer Details OR Walk-in Input Fields (Compact) */}
           {selectedCustomer ? (
-            <div className="p-1.5 rounded-lg bg-[#FEFAF3] border border-[#EADBCE] text-xs space-y-1">
+            <div className="p-1 rounded bg-[#FEFAF3] border border-[#EADBCE] text-[10px] space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900 text-xs">{selectedCustomer.name}</span>
-                <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-900">{selectedCustomer.name}</span>
+                <div className="flex items-center gap-1">
                   {selectedCustomer.currentDue > 0 && (
-                    <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
+                    <span className="font-mono font-bold text-rose-700 bg-rose-50 px-1 py-0.2 rounded border border-rose-200">
                       Due: {settings.currencySymbol}{selectedCustomer.currentDue.toLocaleString()}
                     </span>
                   )}
@@ -783,32 +783,28 @@ export const POSModule: React.FC = () => {
                       setSelectedCustomerId('');
                       setCustomerSearchText('');
                     }}
-                    className="text-[10px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                    className="text-slate-500 hover:text-slate-800 underline cursor-pointer"
                   >
                     Walk-in
                   </button>
                 </div>
               </div>
-              <div className="text-[10px] text-slate-600 flex flex-wrap gap-x-2.5">
-                <span className="font-mono">Phone: {selectedCustomer.phone || 'N/A'}</span>
-                <span>Address: {selectedCustomer.address || 'Dhaka'}</span>
-              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+            <div className="grid grid-cols-2 gap-1 pt-0.5">
               <input
                 type="text"
-                placeholder="Name (Optional)"
+                placeholder="Name (Opt)"
                 value={walkinName}
                 onChange={(e) => setWalkinName(e.target.value)}
-                className="px-2 py-1 text-xs rounded-lg bg-[#FEFAF3] border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45]"
+                className="px-2 py-0.5 text-[11px] rounded bg-[#FEFAF3] border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45]"
               />
               <input
                 type="text"
-                placeholder="Phone Number"
+                placeholder="Phone"
                 value={walkinPhone}
                 onChange={(e) => setWalkinPhone(e.target.value)}
-                className="px-2 py-1 text-xs rounded-lg bg-[#FEFAF3] border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45] font-mono"
+                className="px-2 py-0.5 text-[11px] rounded bg-[#FEFAF3] border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45] font-mono"
               />
             </div>
           )}

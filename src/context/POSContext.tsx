@@ -1378,7 +1378,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     FirebaseSyncService.deleteCustomerTransaction(id).catch(console.warn);
   };
 
-  // Requirement 7 & 8: Bulletproof Due Receive logic
+  // Requirement 7 & 8: Bulletproof Due Receive logic with complete Firebase synchronization
   const receiveDuePayment = (
     customerId: string,
     amount: number,
@@ -1391,95 +1391,119 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const customer = customers.find((c) => c.id === customerId);
     if (!customer || amount <= 0) return null;
 
-    const remainingDue = Math.max(0, customer.currentDue - amount);
-    const updatedAging = {
-      current: Math.max(0, (customer.aging?.current || 0) - amount),
-      days30to60: customer.aging?.days30to60 || 0,
-      days60plus: customer.aging?.days60plus || 0,
-    };
-
-    // Update customer in storage and state
-    const nextCustomers = customers.map((c) =>
-      c.id === customerId
-        ? { ...c, currentDue: remainingDue, aging: updatedAging }
-        : c
-    );
-    setCustomers(nextCustomers);
-    StorageService.saveCustomers(nextCustomers);
-    const targetCust = nextCustomers.find((c) => c.id === customerId);
-    if (targetCust) FirebaseSyncService.saveCustomer(targetCust).catch(console.warn);
-
-    // Update invoice(s)
     let updatedInvoicesList = [...invoices];
+    const relatedCustomerInvoices = updatedInvoicesList
+      .filter(
+        (inv) =>
+          (inv.customerId === customerId || inv.customerName === customer.name) &&
+          inv.dueAmount > 0 &&
+          inv.status !== 'cancelled'
+      )
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    const totalInvoiceDueBefore = relatedCustomerInvoices.reduce(
+      (sum, inv) => sum + (Number(inv.dueAmount) || 0),
+      0
+    );
+    const effectiveBalanceBefore =
+      totalInvoiceDueBefore > 0 ? totalInvoiceDueBefore : Number(customer.currentDue) || 0;
+
     let allocatedInvoiceId = invoiceId;
+
     if (invoiceId) {
       updatedInvoicesList = updatedInvoicesList.map((inv) => {
         if (inv.id === invoiceId) {
-          const newDue = Math.max(0, inv.dueAmount - amount);
-          const newPaid = inv.totalPaid + amount;
-          const newPayments: SplitPayment[] = [
-            ...inv.payments,
-            { method: paymentMethod, amount, reference: reference || 'DUE-PAYMENT' },
-          ];
-          return {
+          const newDue = Math.round(Math.max(0, inv.dueAmount - amount) * 1000) / 1000;
+          const newPaid = Math.round((inv.totalPaid + amount) * 1000) / 1000;
+          const updatedInv: Invoice = {
             ...inv,
             dueAmount: newDue,
             totalPaid: newPaid,
-            payments: newPayments,
+            payments: [
+              ...inv.payments,
+              { method: paymentMethod, amount, reference: reference || 'DUE-PAYMENT' },
+            ],
+            synced: true,
           };
+          FirebaseSyncService.saveInvoice(updatedInv).catch(console.warn);
+          return updatedInv;
         }
         return inv;
       });
       setInvoices(updatedInvoicesList);
       StorageService.saveInvoices(updatedInvoicesList);
-      const targetInv = updatedInvoicesList.find((i) => i.id === invoiceId);
-      if (targetInv) FirebaseSyncService.saveInvoice(targetInv).catch(console.warn);
     } else {
       let remToDeduct = amount;
-      let invoicesChanged = false;
-      const sortedCustomerInvoices = updatedInvoicesList
-        .filter((inv) => (inv.customerId === customerId || inv.customerName === customer.name) && inv.dueAmount > 0)
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-      if (sortedCustomerInvoices.length > 0) {
-        allocatedInvoiceId = sortedCustomerInvoices[0].id;
+      if (relatedCustomerInvoices.length > 0) {
+        allocatedInvoiceId = relatedCustomerInvoices[0].id;
         updatedInvoicesList = updatedInvoicesList.map((inv) => {
           if (
             remToDeduct > 0 &&
             (inv.customerId === customerId || inv.customerName === customer.name) &&
-            inv.dueAmount > 0
+            inv.dueAmount > 0 &&
+            inv.status !== 'cancelled'
           ) {
-            invoicesChanged = true;
             const payThis = Math.min(remToDeduct, inv.dueAmount);
-            remToDeduct -= payThis;
-            return {
+            remToDeduct = Math.round((remToDeduct - payThis) * 1000) / 1000;
+            const updatedInv: Invoice = {
               ...inv,
-              dueAmount: inv.dueAmount - payThis,
-              totalPaid: inv.totalPaid + payThis,
+              dueAmount: Math.round(Math.max(0, inv.dueAmount - payThis) * 1000) / 1000,
+              totalPaid: Math.round((inv.totalPaid + payThis) * 1000) / 1000,
               payments: [
                 ...inv.payments,
                 { method: paymentMethod, amount: payThis, reference: reference || 'DUE-CLEARANCE' },
               ],
+              synced: true,
             };
+            FirebaseSyncService.saveInvoice(updatedInv).catch(console.warn);
+            return updatedInv;
           }
           return inv;
         });
-        if (invoicesChanged) {
-          setInvoices(updatedInvoicesList);
-          StorageService.saveInvoices(updatedInvoicesList);
-          sortedCustomerInvoices.forEach((inv) => {
-            const fresh = updatedInvoicesList.find((i) => i.id === inv.id);
-            if (fresh) FirebaseSyncService.saveInvoice(fresh).catch(console.warn);
-          });
-        }
+        setInvoices(updatedInvoicesList);
+        StorageService.saveInvoices(updatedInvoicesList);
       }
+    }
+
+    const remainingInvoicesDue = updatedInvoicesList
+      .filter(
+        (inv) =>
+          (inv.customerId === customerId || inv.customerName === customer.name) &&
+          inv.dueAmount > 0 &&
+          inv.status !== 'cancelled'
+      )
+      .reduce((sum, inv) => sum + (Number(inv.dueAmount) || 0), 0);
+
+    const finalRemainingDue =
+      relatedCustomerInvoices.length > 0
+        ? Math.round(remainingInvoicesDue * 1000) / 1000
+        : Math.round(Math.max(0, effectiveBalanceBefore - amount) * 1000) / 1000;
+
+    // Update customer in storage, state, and Firebase
+    const updatedAging = {
+      current: finalRemainingDue,
+      days30to60: customer.aging?.days30to60 || 0,
+      days60plus: customer.aging?.days60plus || 0,
+    };
+
+    const nextCustomers = customers.map((c) =>
+      c.id === customerId
+        ? { ...c, currentDue: finalRemainingDue, aging: updatedAging }
+        : c
+    );
+    setCustomers(nextCustomers);
+    StorageService.saveCustomers(nextCustomers);
+    const targetCust = nextCustomers.find((c) => c.id === customerId);
+    if (targetCust) {
+      FirebaseSyncService.saveCustomer(targetCust).catch(console.warn);
+      syncDueRecordToFirestore(targetCust);
     }
 
     const voucherNumber = `VR-${Date.now().toString().slice(-6)}`;
     const finalExplanation =
       explanation?.trim() ||
       notes?.trim() ||
-      `Due payment received: ${settings.currencySymbol}${amount.toLocaleString()} from ${customer.name} via ${paymentMethod} (Ref: ${reference || 'N/A'})`;
+      `Due payment received: ${settings.currencySymbol}${Number(amount).toFixed(3)} from ${customer.name} via ${paymentMethod} (Ref: ${reference || 'N/A'})`;
 
     const newTx: CustomerLedgerTransaction = {
       id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -1487,8 +1511,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customerName: customer.name,
       type: 'due_payment',
       amount,
-      balanceBefore: customer.currentDue,
-      balanceAfter: remainingDue,
+      balanceBefore: effectiveBalanceBefore,
+      balanceAfter: finalRemainingDue,
       date: new Date().toISOString(),
       paymentMethod,
       reference: reference || 'COUNTER-CASH',
@@ -1502,9 +1526,6 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCustomerTransactions((prev) => [newTx, ...prev]);
     FirebaseSyncService.saveCustomerTransaction(newTx).catch(console.warn);
 
-    if (targetCust) {
-      syncDueRecordToFirestore(targetCust);
-    }
     setTimeout(() => {
       try {
         syncDailyReportToFirestore();
