@@ -116,14 +116,43 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
     });
   }, [customerTransactions, searchQuery]);
 
+  const customerDueInvoices = useMemo(() => {
+    if (!selectedCustForPayment) return [];
+    return invoices.filter(
+      (inv) =>
+        inv.dueAmount > 0 &&
+        inv.status !== 'cancelled' &&
+        (inv.customerId === selectedCustForPayment.id || inv.customerName === selectedCustForPayment.name)
+    );
+  }, [invoices, selectedCustForPayment]);
+
   // Open Receive Due Modal from Customer Dues
   const handleOpenReceiveDue = (cust: Customer) => {
-    setSelectedInvoiceForPayment(null);
     setSelectedCustForPayment(cust);
-    setPaymentAmount(cust.currentDue > 0 ? cust.currentDue : 0);
+    const custInvs = invoices.filter(
+      (inv) =>
+        inv.dueAmount > 0 &&
+        inv.status !== 'cancelled' &&
+        (inv.customerId === cust.id || inv.customerName === cust.name)
+    );
+    if (custInvs.length > 1) {
+      // If multiple invoices exist, default to All Invoices / Total Due so user can collect up to the total amount
+      setSelectedInvoiceForPayment(null);
+      setPaymentAmount(cust.currentDue > 0 ? Number(cust.currentDue.toFixed(3)) : 0);
+      setPaymentReference('ALL-INVOICES');
+      setPaymentNotes(`Cash settlement of total due from ${cust.name}`);
+    } else if (custInvs.length === 1) {
+      setSelectedInvoiceForPayment(custInvs[0]);
+      setPaymentAmount(Number(custInvs[0].dueAmount.toFixed(3)));
+      setPaymentReference(`INV-${custInvs[0].id}`);
+      setPaymentNotes(`Settlement of Invoice #${custInvs[0].id}`);
+    } else {
+      setSelectedInvoiceForPayment(null);
+      setPaymentAmount(cust.currentDue > 0 ? Number(cust.currentDue.toFixed(3)) : 0);
+      setPaymentReference('');
+      setPaymentNotes(`Cash settlement of due from ${cust.name}`);
+    }
     setPaymentMethod('cash');
-    setPaymentReference('');
-    setPaymentNotes(`Cash settlement of due from ${cust.name}`);
     setPaymentError('');
   };
 
@@ -657,19 +686,108 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
               <div>
                 <span className="text-slate-500 block">Customer:</span>
                 <strong className="text-slate-900 text-sm block">{selectedCustForPayment.name}</strong>
-                {selectedInvoiceForPayment && (
+                {selectedInvoiceForPayment ? (
                   <span className="text-[10px] text-[#C49A45] font-mono font-bold block mt-0.5">
                     Target Invoice: #{selectedInvoiceForPayment.id}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-700 font-mono font-bold block mt-0.5">
+                    Target: All Invoices (Total Due / সর্বমোট বকেয়া)
                   </span>
                 )}
               </div>
               <div className="text-right">
-                <span className="text-slate-500 block">Current Total Due:</span>
+                <span className="text-slate-500 block">
+                  {selectedInvoiceForPayment ? 'Invoice Due:' : 'Current Total Due:'}
+                </span>
                 <span className="text-base font-extrabold text-rose-600 font-mono">
-                  {settings.currencySymbol}{currentModalMax.toLocaleString()}
+                  {settings.currencySymbol}{Number(currentModalMax).toFixed(3)}
                 </span>
               </div>
             </div>
+
+            {/* Invoice-wise Due breakdown with Total Due Row beneath */}
+            {customerDueInvoices.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-700 block">
+                  Select Due Invoice or All Invoices (ইনভয়েস সিলেক্ট করুন অথবা সর্বমোট বকেয়া):
+                </span>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 border border-slate-200 rounded-xl p-2 bg-[#FEFAF3]">
+                  {/* Individual Invoices */}
+                  {customerDueInvoices.map((inv) => {
+                    const isSelected = selectedInvoiceForPayment?.id === inv.id;
+                    return (
+                      <div
+                        key={inv.id}
+                        onClick={() => {
+                          setSelectedInvoiceForPayment(inv);
+                          setPaymentAmount(Number(inv.dueAmount.toFixed(3)));
+                          setPaymentReference(`INV-${inv.id}`);
+                          setPaymentNotes(`Settlement of Invoice #${inv.id}`);
+                        }}
+                        className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-emerald-50 border-emerald-400 font-bold text-emerald-900 shadow-2xs'
+                            : 'bg-white border-slate-200 hover:bg-amber-50 text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`w-3 h-3 rounded-full border flex items-center justify-center shrink-0 ${
+                            isSelected ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300'
+                          }`}>
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
+                          </span>
+                          <div>
+                            <span className="font-mono font-bold text-[#C49A45]">Invoice #{inv.id}</span>
+                            <span className="text-[10px] text-slate-500 ml-2">({new Date(inv.createdAt).toLocaleDateString()})</span>
+                          </div>
+                        </div>
+                        <span className="font-mono font-extrabold text-rose-600">
+                          {settings.currencySymbol}{Number(inv.dueAmount).toFixed(3)}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* Total Due Section placed directly beneath individual invoices */}
+                  <div
+                    onClick={() => {
+                      setSelectedInvoiceForPayment(null);
+                      setPaymentAmount(Number(selectedCustForPayment.currentDue.toFixed(3)));
+                      setPaymentReference('ALL-INVOICES');
+                      setPaymentNotes(`Settlement of all due invoices for ${selectedCustForPayment.name}`);
+                    }}
+                    className={`p-2.5 rounded-lg border-2 text-xs flex items-center justify-between cursor-pointer transition-all mt-1 ${
+                      selectedInvoiceForPayment === null
+                        ? 'bg-amber-100/90 border-[#C49A45] text-amber-950 font-bold shadow-xs'
+                        : 'bg-white border-amber-300 hover:bg-amber-50/70 text-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        selectedInvoiceForPayment === null ? 'border-[#C49A45] bg-[#C49A45]' : 'border-slate-400 bg-white'
+                      }`}>
+                        {selectedInvoiceForPayment === null && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
+                      </span>
+                      <div>
+                        <span className="font-bold text-slate-900 block text-xs">
+                          All Invoices / Total Due (সর্বমোট বকেয়া)
+                        </span>
+                        <span className="text-[10px] text-slate-500 block">
+                          যেকোনো পরিমাণ টাকা (সর্বমোট {settings.currencySymbol}{Number(selectedCustForPayment.currentDue).toFixed(3)} পর্যন্ত) গ্রহণ করুন
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-500 block font-sans">Total Due:</span>
+                      <span className="font-mono font-black text-rose-700 text-sm">
+                        {settings.currencySymbol}{Number(selectedCustForPayment.currentDue).toFixed(3)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {paymentError && (
               <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
@@ -680,43 +798,33 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
 
             <form onSubmit={handleSubmitDuePayment} className="space-y-3.5 text-xs">
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-slate-700 font-bold">
-                    Received Amount ({settings.currencySymbol}) *
-                  </label>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentAmount(currentModalMax)}
-                      className="text-[11px] font-bold text-[#C49A45] hover:underline cursor-pointer px-1.5 py-0.5 bg-amber-50 rounded"
-                    >
-                      Full Due (100%)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentAmount(Math.round(currentModalMax * 0.5))}
-                      className="text-[11px] font-bold text-slate-600 hover:underline cursor-pointer px-1.5 py-0.5 bg-slate-100 rounded"
-                    >
-                      50%
-                    </button>
-                  </div>
-                </div>
+                <label className="text-slate-700 font-bold block mb-1.5">
+                  Received Amount ({settings.currencySymbol}) * (Max: {settings.currencySymbol}{Number(currentModalMax).toFixed(3)})
+                </label>
                 <input
                   type="number"
-                  min="1"
+                  min="0.001"
                   max={currentModalMax}
-                  step="any"
+                  step="0.001"
                   required
                   autoFocus
                   value={paymentAmount || ''}
-                  onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (isNaN(val)) {
+                      setPaymentAmount(0);
+                    } else {
+                      const rounded = Math.round(val * 1000) / 1000;
+                      setPaymentAmount(rounded);
+                    }
+                  }}
                   className="w-full px-3 py-2.5 text-base font-mono font-bold rounded-xl bg-[#FEFAF3] border border-slate-300 text-emerald-700 focus:bg-white focus:outline-none focus:border-emerald-500"
                 />
                 <div className="flex justify-between items-center text-[11px] text-slate-500 mt-1">
                   <span>Balance After Payment:</span>
                   <strong className="font-mono text-slate-800">
                     {settings.currencySymbol}
-                    {Math.max(0, currentModalMax - (paymentAmount || 0)).toLocaleString()}
+                    {Math.max(0, currentModalMax - (paymentAmount || 0)).toFixed(3)}
                   </strong>
                 </div>
               </div>

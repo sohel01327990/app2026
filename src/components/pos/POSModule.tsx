@@ -285,11 +285,11 @@ export const POSModule: React.FC = () => {
       {/* ========================================================= */}
       {/* LEFT: Product Catalog & Search                            */}
       {/* ========================================================= */}
-      <div className={`flex-1 flex flex-col border-r border-[#EADBCE] overflow-hidden bg-[#FEFAF3] ${
+      <div className={`flex-1 flex flex-col border-r border-[#EADBCE] overflow-hidden bg-[#FEFAF3] min-h-0 ${
         mobileActiveView === 'products' ? 'flex' : 'hidden lg:flex'
       }`}>
-        {/* Search, Barcode & View Switcher */}
-        <div className="p-3 bg-white border-b border-[#EADBCE] flex flex-col sm:flex-row gap-2.5 items-center justify-between">
+        {/* Search, Barcode & View Switcher (Pinned / Fixed Header) */}
+        <div className="p-3 bg-white border-b border-[#EADBCE] flex flex-col sm:flex-row gap-2.5 items-center justify-between shrink-0">
           <div className="relative w-full sm:flex-1">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
             <input
@@ -317,7 +317,7 @@ export const POSModule: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
             {/* View Mode Toggle (Table / Grid) */}
             <div className="flex items-center border border-slate-200 bg-[#FEFAF3] rounded-xl p-0.5 shrink-0">
               <button
@@ -350,8 +350,8 @@ export const POSModule: React.FC = () => {
           </div>
         </div>
 
-        {/* Categories Bar */}
-        <div className="px-3 py-2 bg-white border-b border-[#EADBCE] flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+        {/* Categories Bar (Pinned / Fixed Header) */}
+        <div className="px-3 py-2 bg-white border-b border-[#EADBCE] flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`px-3 py-1.5 text-xs rounded-xl font-bold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
@@ -382,18 +382,18 @@ export const POSModule: React.FC = () => {
 
         {/* Product Catalog Display: Row & Column Table View when searching or selected, otherwise Grid */}
         {searchQuery.trim().length > 0 || catalogViewMode === 'table' ? (
-          <div className="flex-1 flex flex-col overflow-hidden bg-white">
-            {/* Table Header matching Image 1 */}
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-10 select-none">
+          <div className="flex-1 flex flex-col overflow-hidden bg-white min-h-0">
+            {/* Table Header pinned/sticky matching Image 1 */}
+            <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0 relative">
+              <table className="w-full text-left text-xs border-collapse min-w-[580px] md:min-w-[660px]">
+                <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-20 shadow-xs select-none">
                   <tr>
-                    <th className="py-2 px-3 border-r border-slate-300 w-28 md:w-32">Code</th>
-                    <th className="py-2 px-3 border-r border-slate-300">Item Name</th>
-                    <th className="py-2 px-3 border-r border-slate-300 hidden md:table-cell w-28">Category</th>
-                    <th className="py-2 px-3 border-r border-slate-300 text-center w-24">Stock</th>
-                    <th className="py-2 px-3 border-r border-slate-300 text-right w-28">MRP</th>
-                    <th className="py-2 px-3 text-center w-20">Action</th>
+                    <th className="py-2.5 px-3 border-r border-slate-300 w-24 md:w-28 whitespace-nowrap">Code</th>
+                    <th className="py-2.5 px-3 border-r border-slate-300 min-w-[140px] md:min-w-[200px]">Item Name</th>
+                    <th className="py-2.5 px-3 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">Min Price Guard</th>
+                    <th className="py-2.5 px-3 border-r border-slate-300 text-center w-20 md:w-24 whitespace-nowrap">Stock</th>
+                    <th className="py-2.5 px-3 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">MRP</th>
+                    <th className="py-2.5 px-3 text-center w-16 md:w-20 whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -437,10 +437,10 @@ export const POSModule: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Category Column */}
-                        <td className="py-2 px-3 border-r border-slate-300/60 hidden md:table-cell truncate">
-                          <span className={isSelected ? 'text-blue-100' : 'text-slate-600'}>
-                            {prod.category}
+                        {/* Min Price Guard Column replacing Category */}
+                        <td className="py-2 px-3 border-r border-slate-300/60 text-right font-mono whitespace-nowrap">
+                          <span className={isSelected ? 'text-blue-100 font-bold' : 'text-slate-700 font-bold'}>
+                            {settings.currencySymbol}{Number(prod.minSellingPrice).toFixed(3)}
                           </span>
                         </td>
 
@@ -500,7 +500,7 @@ export const POSModule: React.FC = () => {
             </div>
 
             {/* ERP Footer Status Bar matching Image 1 */}
-            <div className="px-3 py-1.5 bg-[#E6E6E6] border-t border-slate-300 flex items-center justify-between text-xs text-slate-700 select-none">
+            <div className="px-3 py-1.5 bg-[#E6E6E6] border-t border-slate-300 flex items-center justify-between text-xs text-slate-700 select-none shrink-0">
               <div className="flex items-center gap-1 font-mono">
                 <button
                   type="button"
@@ -645,19 +645,19 @@ export const POSModule: React.FC = () => {
       <div className={`w-full lg:w-[460px] flex flex-col bg-white border-l border-[#EADBCE] overflow-hidden shrink-0 ${
         mobileActiveView === 'cart' ? 'flex' : 'hidden lg:flex'
       }`}>
-        {/* Customer Header */}
-        <div className="p-3.5 bg-white border-b border-[#EADBCE] space-y-2.5">
+        {/* Customer Header (Compact View) */}
+        <div className="px-3 py-2 bg-white border-b border-[#EADBCE] space-y-1.5 shrink-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <Building className="w-3.5 h-3.5 text-[#C49A45]" />
+            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+              <Building className="w-3 h-3 text-[#C49A45]" />
               <span>Customer Information</span>
             </span>
             <button
               onClick={() => setShowNewCustModal(true)}
-              className="text-xs text-[#C49A45] hover:text-[#a88235] font-bold flex items-center gap-1 cursor-pointer"
+              className="text-[11px] text-[#C49A45] hover:text-[#a88235] font-bold flex items-center gap-0.5 cursor-pointer"
             >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>+ New Customer</span>
+              <UserPlus className="w-3 h-3" />
+              <span>+ New</span>
             </button>
           </div>
 
@@ -673,7 +673,7 @@ export const POSModule: React.FC = () => {
                 setCustomerSearchText('');
               }
             }}
-            className="w-full px-3 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45] font-medium cursor-pointer"
+            className="w-full px-2.5 py-1 text-xs rounded-lg bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45] font-medium cursor-pointer"
           >
             <option value="">Walk-in Cash Customer</option>
             {customers.map((c) => (
@@ -686,10 +686,10 @@ export const POSModule: React.FC = () => {
           {/* Search bar directly above Customer Name input as marked in Image 2 */}
           <div className="relative">
             <div className="relative flex items-center">
-              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-[#C49A45]" />
+              <Search className="absolute left-2.5 top-2 w-3 h-3 text-[#C49A45]" />
               <input
                 type="text"
-                placeholder="Search previous customer by Name or Mobile..."
+                placeholder="Search customer by Name or Mobile..."
                 value={customerSearchText}
                 onChange={(e) => {
                   setCustomerSearchText(e.target.value);
@@ -705,7 +705,7 @@ export const POSModule: React.FC = () => {
                     setShowCustomerSuggestions(false);
                   }
                 }}
-                className="w-full pl-8 pr-7 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-amber-300/80 focus:border-[#C49A45] text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C49A45] font-medium"
+                className="w-full pl-7 pr-6 py-1 text-xs rounded-lg bg-[#FEFAF3] border border-amber-300/80 focus:border-[#C49A45] text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C49A45] font-medium"
               />
               {customerSearchText && (
                 <button
@@ -717,7 +717,7 @@ export const POSModule: React.FC = () => {
                   className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                   title="Clear search"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3 h-3" />
                 </button>
               )}
             </div>
@@ -727,7 +727,7 @@ export const POSModule: React.FC = () => {
               <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#EADBCE] rounded-xl shadow-xl z-30 max-h-56 overflow-y-auto divide-y divide-slate-100">
                 {matchingCustomers.length === 0 ? (
                   <div className="p-3 text-center text-xs text-slate-500">
-                    No previous customer found with "{customerSearchText}"
+                    No customer found with "{customerSearchText}"
                   </div>
                 ) : (
                   matchingCustomers.map((cust) => (
@@ -739,22 +739,22 @@ export const POSModule: React.FC = () => {
                         setCustomerSearchText(cust.name);
                         setShowCustomerSuggestions(false);
                       }}
-                      className="w-full p-2.5 text-left hover:bg-amber-50/70 flex items-center justify-between text-xs transition-colors cursor-pointer"
+                      className="w-full p-2 text-left hover:bg-amber-50/70 flex items-center justify-between text-xs transition-colors cursor-pointer"
                     >
                       <div>
                         <p className="font-bold text-slate-900">{cust.name}</p>
-                        <p className="text-[11px] text-slate-500 flex items-center gap-1 font-mono">
-                          <Phone className="w-3 h-3 text-[#C49A45]" />
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
+                          <Phone className="w-2.5 h-2.5 text-[#C49A45]" />
                           {cust.phone || 'No phone'} &middot; {cust.address || 'Dhaka'}
                         </p>
                       </div>
                       <div className="text-right">
                         {cust.currentDue > 0 ? (
-                          <span className="text-[11px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 font-mono">
+                          <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1 py-0.5 rounded border border-rose-200 font-mono">
                             Due: {settings.currencySymbol}{cust.currentDue.toLocaleString()}
                           </span>
                         ) : (
-                          <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1 py-0.5 rounded">
                             No Due
                           </span>
                         )}
@@ -766,14 +766,14 @@ export const POSModule: React.FC = () => {
             )}
           </div>
 
-          {/* Selected Customer Details OR Walk-in Input Fields (directly below Search Bar) */}
+          {/* Selected Customer Details OR Walk-in Input Fields (Compact) */}
           {selectedCustomer ? (
-            <div className="p-2.5 rounded-xl bg-[#FEFAF3] border border-[#EADBCE] text-xs space-y-1.5">
+            <div className="p-1.5 rounded-lg bg-[#FEFAF3] border border-[#EADBCE] text-xs space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900 text-sm">{selectedCustomer.name}</span>
+                <span className="font-bold text-slate-900 text-xs">{selectedCustomer.name}</span>
                 <div className="flex items-center gap-1.5">
                   {selectedCustomer.currentDue > 0 && (
-                    <span className="text-[11px] font-mono font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                    <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
                       Due: {settings.currencySymbol}{selectedCustomer.currentDue.toLocaleString()}
                     </span>
                   )}
@@ -783,134 +783,120 @@ export const POSModule: React.FC = () => {
                       setSelectedCustomerId('');
                       setCustomerSearchText('');
                     }}
-                    className="text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                    className="text-[10px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
                   >
-                    Switch to Walk-in
+                    Walk-in
                   </button>
                 </div>
               </div>
-              <div className="text-[11px] text-slate-600 flex flex-wrap gap-x-3">
+              <div className="text-[10px] text-slate-600 flex flex-wrap gap-x-2.5">
                 <span className="font-mono">Phone: {selectedCustomer.phone || 'N/A'}</span>
                 <span>Address: {selectedCustomer.address || 'Dhaka'}</span>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
+            <div className="grid grid-cols-2 gap-1.5 pt-0.5">
               <input
                 type="text"
-                placeholder="Customer Name (Optional)"
+                placeholder="Name (Optional)"
                 value={walkinName}
                 onChange={(e) => setWalkinName(e.target.value)}
-                className="px-2.5 py-1.5 text-xs rounded-xl bg-[#FEFAF3] border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45]"
+                className="px-2 py-1 text-xs rounded-lg bg-[#FEFAF3] border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45]"
               />
               <input
                 type="text"
                 placeholder="Phone Number"
                 value={walkinPhone}
                 onChange={(e) => setWalkinPhone(e.target.value)}
-                className="px-2.5 py-1.5 text-xs rounded-xl bg-[#FEFAF3] border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45] font-mono"
+                className="px-2 py-1 text-xs rounded-lg bg-[#FEFAF3] border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45] font-mono"
               />
             </div>
           )}
         </div>
 
-        {/* Cart Items List */}
-        <div className="flex-1 p-3 overflow-y-auto space-y-2 bg-[#FEFAF3]/40">
-          {cart.map((item) => {
-            const violatesMin = item.unitPrice < item.product.minSellingPrice;
-            return (
-              <div
-                key={item.product.id}
-                className={`p-3 rounded-xl border text-xs transition-colors bg-white ${
-                  violatesMin ? 'border-rose-300 ring-1 ring-rose-200' : 'border-[#EADBCE] shadow-xs'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <h5 className="font-bold text-slate-900 truncate">{item.product.name}</h5>
-                    <div className="text-[11px] text-slate-500 font-mono">
-                      {item.product.sku} &middot; {item.unit}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeFromCart(item.product.id)}
-                    className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                    title="Remove item"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="mt-2.5 flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                  {/* Quantity Stepper */}
-                  <div className="flex items-center gap-1 bg-[#FEFAF3] rounded-lg p-0.5 border border-[#EADBCE]">
-                    <button
-                      onClick={() => updateCartItemQty(item.product.id, Math.max(0, item.quantity - 1))}
-                      className="w-6 h-6 flex items-center justify-center text-slate-600 hover:text-slate-900 cursor-pointer"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={item.quantity}
-                      onChange={(e) =>
-                        updateCartItemQty(item.product.id, parseFloat(e.target.value) || 0)
-                      }
-                      className="w-12 text-center text-xs font-mono font-bold bg-transparent text-slate-900 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => updateCartItemQty(item.product.id, item.quantity + 1)}
-                      className="w-6 h-6 flex items-center justify-center text-slate-600 hover:text-slate-900 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Unit Price Input */}
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-slate-400">@</span>
-                    <input
-                      type="number"
-                      value={item.unitPrice}
-                      onChange={(e) =>
-                        updateCartItemPrice(item.product.id, parseFloat(e.target.value) || 0)
-                      }
-                      className={`w-20 px-2 py-1 text-xs font-mono rounded-lg text-right border focus:outline-none ${
-                        violatesMin
-                          ? 'bg-rose-50 text-rose-800 border-rose-300'
-                          : 'bg-[#FEFAF3] text-slate-900 border-slate-200'
-                      }`}
-                    />
-                  </div>
-
-                  {/* Line Total */}
-                  <div className="text-right">
-                    <span className="font-extrabold text-slate-900 font-mono text-sm tabular-nums">
-                      {settings.currencySymbol}
-                      {item.total.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {violatesMin && (
-                  <div className="mt-1.5 text-[10px] text-rose-700 flex items-center gap-1 font-semibold bg-rose-50 p-1.5 rounded-lg border border-rose-200">
-                    <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
-                    <span>
-                      Below min price ({settings.currencySymbol}{item.product.minSellingPrice})! Manager PIN required.
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {cart.length === 0 && (
+        {/* Cart Items Table View matching Image 12 */}
+        <div className="flex-1 overflow-y-auto bg-white">
+          {cart.length === 0 ? (
             <div className="py-16 text-center text-slate-400 space-y-2">
-              <ShoppingCart className="w-8 h-8 mx-auto text-slate-300" />
-              <p className="text-xs font-semibold text-slate-600">Cart is empty</p>
-              <p className="text-[11px] text-slate-400">Click products from catalog to add</p>
+              <ShoppingCart className="w-10 h-10 mx-auto text-slate-300" />
+              <p className="text-sm font-semibold text-slate-700">Cart is empty</p>
+              <p className="text-xs text-slate-500">Search or click products to add to cart</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-10 select-none">
+                  <tr>
+                    <th className="py-2 px-2.5 border-r border-slate-300">Item / SKU</th>
+                    <th className="py-2 px-2.5 border-r border-slate-300 text-center w-28">Qty</th>
+                    <th className="py-2 px-2.5 border-r border-slate-300 text-right w-24">Price</th>
+                    <th className="py-2 px-2.5 border-r border-slate-300 text-right w-24">Total</th>
+                    <th className="py-2 px-2 text-center w-12">🗑️</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {cart.map((item) => {
+                    const violatesMin = item.unitPrice < item.product.minSellingPrice;
+                    return (
+                      <tr key={item.product.id} className={violatesMin ? 'bg-rose-50/70' : 'bg-white hover:bg-amber-50/40'}>
+                        <td className="py-2 px-2.5 border-r border-slate-200">
+                          <p className="font-bold text-slate-900 truncate max-w-[130px] sm:max-w-[170px]">{item.product.name}</p>
+                          <span className="font-mono text-[10px] text-slate-500">{item.product.sku} &middot; {item.unit}</span>
+                          {violatesMin && (
+                            <span className="block text-[9px] text-rose-700 font-bold">Min Guard: {settings.currencySymbol}{item.product.minSellingPrice}</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200 text-center">
+                          <div className="flex items-center justify-center gap-1 bg-[#FEFAF3] rounded-lg p-0.5 border border-slate-300">
+                            <button
+                              onClick={() => updateCartItemQty(item.product.id, Math.max(0, item.quantity - 1))}
+                              className="w-5 h-5 flex items-center justify-center text-slate-700 hover:bg-slate-200 rounded font-bold cursor-pointer"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={item.quantity}
+                              onChange={(e) => updateCartItemQty(item.product.id, parseFloat(e.target.value) || 0)}
+                              className="w-10 text-center font-mono font-bold text-xs bg-transparent text-slate-900 focus:outline-none"
+                            />
+                            <button
+                              onClick={() => updateCartItemQty(item.product.id, item.quantity + 1)}
+                              className="w-5 h-5 flex items-center justify-center text-slate-700 hover:bg-slate-200 rounded font-bold cursor-pointer"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200 text-right font-mono">
+                          <input
+                            type="number"
+                            value={item.unitPrice}
+                            onChange={(e) => updateCartItemPrice(item.product.id, parseFloat(e.target.value) || 0)}
+                            className={`w-20 px-1.5 py-1 text-xs font-mono font-bold text-right rounded border focus:outline-none ${
+                              violatesMin ? 'bg-rose-100 text-rose-900 border-rose-400' : 'bg-[#FEFAF3] text-slate-900 border-slate-300'
+                            }`}
+                          />
+                        </td>
+                        <td className="py-2 px-2.5 border-r border-slate-200 text-right font-mono font-extrabold text-slate-900 whitespace-nowrap">
+                          {settings.currencySymbol}{item.total.toLocaleString()}
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          <button
+                            onClick={() => removeFromCart(item.product.id)}
+                            className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                            title="Remove item"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

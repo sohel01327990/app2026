@@ -136,7 +136,7 @@ const POSAppContent: React.FC = () => {
         />
 
         {/* Active Content Module with #FEFAF3 background and smooth scroll */}
-        <main className="flex-1 overflow-y-auto bg-[#FEFAF3]">
+        <main className={`flex-1 bg-[#FEFAF3] ${activeTab === 'pos' ? 'overflow-hidden flex flex-col h-full' : 'overflow-y-auto'}`}>
           <React.Suspense fallback={<ModuleLoader />}>
             {activeTab === 'pos' && <POSModule />}
             {activeTab === 'inventory' && <InventoryModule />}
