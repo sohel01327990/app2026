@@ -135,9 +135,16 @@ export interface POSContextType {
   selectedCustomerIdForPOS: string | null;
   setSelectedCustomerIdForPOS: (id: string | null) => void;
   suppliers: Supplier[];
-  addSupplier: (sup: Omit<Supplier, 'id' | 'balancePayable'>) => void;
+  addSupplier: (sup: Omit<Supplier, 'id'> & { balancePayable?: number }) => void;
   deleteSupplier: (id: string) => void;
-  recordSupplierPayment: (supplierId: string, amount: number, paymentMethod: PaymentMethod, reference: string) => void;
+  recordSupplierPayment: (
+    supplierId: string,
+    amount: number,
+    paymentMethod: PaymentMethod,
+    reference: string,
+    paymentDate?: string,
+    notes?: string
+  ) => void;
   expenses: Expense[];
   addExpense: (exp: Omit<Expense, 'id' | 'recordedBy'>) => void;
   deleteExpense: (id: string) => void;
@@ -1602,9 +1609,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newTx;
   };
 
-  const addSupplier = (sup: Omit<Supplier, 'id' | 'balancePayable'>) => {
+  const addSupplier = (sup: Omit<Supplier, 'id'> & { balancePayable?: number }) => {
     const id = `sup_${Date.now()}`;
-    const newSup: Supplier = { ...sup, id, balancePayable: 0 };
+    const newSup: Supplier = { ...sup, id, balancePayable: sup.balancePayable || 0 };
     const updated = [...suppliers, newSup];
     setSuppliers(updated);
     StorageService.saveSuppliers(updated);
@@ -1631,7 +1638,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     supplierId: string,
     amount: number,
     paymentMethod: PaymentMethod,
-    reference: string
+    reference: string,
+    paymentDate?: string,
+    notes?: string
   ) => {
     const sup = suppliers.find((s) => s.id === supplierId);
     if (!sup) return;
@@ -1642,14 +1651,15 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetSup = updated.find((s) => s.id === supplierId);
     if (targetSup) FirebaseSyncService.saveSupplier(targetSup).catch(console.warn);
 
+    const refNum = reference?.trim() || `VND-${Date.now().toString().slice(-5)}`;
     const exp: Expense = {
       id: `exp_${Date.now()}`,
-      category: 'Miscellaneous',
+      category: 'Vendor Payment',
       amount,
-      date: new Date().toISOString().slice(0, 10),
-      description: `Supplier payment to ${sup.companyName} (Ref: ${reference})`,
+      date: paymentDate || new Date().toISOString().slice(0, 10),
+      description: notes?.trim() || `Vendor payment to ${sup.companyName} (Contact: ${sup.contactPerson || 'N/A'})`,
       paidVia: paymentMethod,
-      referenceNumber: reference,
+      referenceNumber: refNum,
       recordedBy: currentUser.name,
     };
     const updatedExp = [exp, ...expenses];

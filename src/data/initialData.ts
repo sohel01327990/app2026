@@ -112,7 +112,26 @@ export const INITIAL_USERS: User[] = [
 
 export const INITIAL_PRODUCTS: Product[] = [];
 export const INITIAL_CUSTOMERS: Customer[] = [];
-export const INITIAL_SUPPLIERS: Supplier[] = [];
+export const INITIAL_SUPPLIERS: Supplier[] = [
+  {
+    id: 'sup_1',
+    companyName: 'BSRM Steel Mills Ltd',
+    contactPerson: 'Engr. Rafiqul Islam',
+    phone: '+880 1819-100200',
+    category: 'Steel & Rebar Manufacturer',
+    balancePayable: 1250,
+    paymentTerms: '15 Days Credit',
+  },
+  {
+    id: 'sup_2',
+    companyName: 'Crown Cement Industries',
+    contactPerson: 'Md. Delwar Hossain',
+    phone: '+880 1711-300400',
+    category: 'Cement Supplier',
+    balancePayable: 850,
+    paymentTerms: '10 Days Credit',
+  },
+];
 export const INITIAL_EXPENSES: Expense[] = [];
 export const INITIAL_INVOICES: Invoice[] = [];
 export const INITIAL_CUSTOMER_TRANSACTIONS: CustomerLedgerTransaction[] = [];
