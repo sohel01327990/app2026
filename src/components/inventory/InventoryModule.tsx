@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePOS } from '../../context/POSContext';
 import { Product, MaterialUnit, StockAdjustment } from '../../types';
+import { printProductSticker, downloadStickerHTML } from '../../utils/printProductSticker';
 import {
   Boxes,
   Plus,
@@ -11,6 +12,7 @@ import {
   Calculator,
   Edit2,
   Tag,
+  Printer,
   X,
 } from 'lucide-react';
 
@@ -40,6 +42,8 @@ export const InventoryModule: React.FC = () => {
   const [showWasteModal, setShowWasteModal] = useState(false);
   const [showCalcModal, setShowCalcModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [selectedStickerProduct, setSelectedStickerProduct] = useState<Product | null>(null);
+  const [stickerCopies, setStickerCopies] = useState<number>(1);
 
   // Product Form state
   const [formName, setFormName] = useState('');
@@ -337,7 +341,7 @@ export const InventoryModule: React.FC = () => {
                 <th className="py-3 px-4 border-r border-slate-300 text-right">Min Selling Price</th>
                 <th className="py-3 px-4 border-r border-slate-300 text-right">Stock Level</th>
                 <th className="py-3 px-4 border-r border-slate-300 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Actions (Edit / Delete)</th>
+                <th className="py-3 px-4 text-right">Actions (Print / Edit / Delete)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -381,8 +385,19 @@ export const InventoryModule: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      {/* REQUIREMENT 4: Edit and Delete buttons are located here in Inventory & Yard */}
+                      {/* Actions: Print Sticker, Edit, and Delete */}
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedStickerProduct(prod);
+                            setStickerCopies(1);
+                          }}
+                          className="p-1.5 rounded-lg bg-amber-50 hover:bg-[#C49A45] hover:text-white text-[#C49A45] border border-[#C49A45]/30 transition-colors cursor-pointer flex items-center gap-1"
+                          title="Print Product Sticker Label (Material Name, SKU, Price)"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(prod)}
@@ -869,6 +884,182 @@ export const InventoryModule: React.FC = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Sticker Label Print Modal */}
+      {selectedStickerProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-3xl bg-white border border-[#EADBCE] shadow-2xl p-6 text-slate-900 space-y-4 my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Printer className="w-5 h-5 text-[#C49A45]" />
+                <span>Print Product Sticker Label</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedStickerProduct(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Live Sticker Preview Card */}
+            <div className="p-4 bg-[#FEFAF3] border border-[#EADBCE] rounded-2xl flex flex-col items-center justify-center">
+              <span className="text-[10px] uppercase font-bold text-slate-400 mb-2">Live Sticker Preview (55mm x 35mm)</span>
+              
+              <div className="w-64 bg-white border-2 border-slate-800 rounded-xl p-3 shadow-md space-y-2 text-left">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1">
+                  <span className="text-[10px] font-extrabold uppercase text-slate-600 tracking-wider truncate max-w-[150px]">
+                    {settings.businessName}
+                  </span>
+                  <span className="text-[9px] font-mono font-bold bg-amber-100 text-[#C49A45] px-1.5 py-0.5 rounded">
+                    STICKER
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-[9px] uppercase text-slate-400 font-bold block">Material Name:</label>
+                  <strong className="text-sm font-extrabold text-slate-900 block leading-tight">
+                    {selectedStickerProduct.name}
+                  </strong>
+                </div>
+
+                <div className="flex justify-between items-end pt-1">
+                  <div>
+                    <label className="text-[9px] uppercase text-slate-400 font-bold block">SKU / Code:</label>
+                    <span className="font-mono font-bold text-xs text-[#C49A45] block">
+                      {selectedStickerProduct.sku}
+                    </span>
+                    {selectedStickerProduct.barcode && (
+                      <span className="text-[10px] font-mono text-slate-500 block">
+                        BC: {selectedStickerProduct.barcode}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-right bg-slate-900 text-white px-2.5 py-1 rounded-lg">
+                    <span className="text-[8px] uppercase font-bold block text-amber-300">Selling Price</span>
+                    <span className="font-mono font-extrabold text-sm text-yellow-300">
+                      {settings.currencySymbol}{selectedStickerProduct.regularPrice.toLocaleString()}
+                      {selectedStickerProduct.unit ? <span className="text-[10px] text-slate-300 font-normal">/{selectedStickerProduct.unit}</span> : ''}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-center font-mono text-[11px] font-black tracking-widest text-slate-800 pt-1 border-t border-slate-200 select-none">
+                  ||||| | ||||| |||| ||||| ||
+                </div>
+              </div>
+            </div>
+
+            {/* Copies Selection & Print Trigger */}
+            <div className="space-y-3 text-xs">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-slate-700 font-bold block">
+                    Number of Sticker Copies to Print
+                  </label>
+                  <span className="text-[11px] text-slate-500 font-mono font-bold">
+                    Preset:
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={stickerCopies}
+                  onChange={(e) => setStickerCopies(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-mono font-bold text-base focus:bg-white focus:outline-none focus:border-[#C49A45]"
+                />
+                <div className="flex gap-1.5 mt-2">
+                  {[1, 5, 10, 50, 100].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setStickerCopies(num)}
+                      className={`flex-1 py-1 rounded-lg text-xs font-mono font-bold border cursor-pointer transition-all ${
+                        stickerCopies === num
+                          ? 'bg-[#C49A45] text-white border-[#C49A45] shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      {num} {num === 1 ? 'Copy' : 'Pcs'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    printProductSticker(selectedStickerProduct, settings, stickerCopies);
+                  }}
+                  className="w-full py-3 rounded-xl bg-[#C49A45] hover:bg-[#b58c38] text-white font-extrabold shadow-md cursor-pointer transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print {stickerCopies} Sticker{stickerCopies > 1 ? 's' : ''} Now</span>
+                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadStickerHTML(selectedStickerProduct, settings, stickerCopies);
+                    }}
+                    className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300 cursor-pointer text-xs"
+                  >
+                    📥 Download Printable HTML
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStickerProduct(null)}
+                    className="py-2 px-4 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer text-xs"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden DOM Printable Sticker Area for instant window.print() */}
+      {selectedStickerProduct && (
+        <div id="printable-sticker-area" className="hidden print:block p-2">
+          <div className="flex flex-wrap gap-3">
+            {Array.from({ length: Math.max(1, Math.min(stickerCopies, 100)) }).map((_, idx) => (
+              <div
+                key={idx}
+                className="w-[55mm] h-[35mm] border border-slate-400 rounded-md p-2 bg-white flex flex-col justify-between text-left box-border font-sans break-inside-avoid"
+              >
+                <div className="text-[8px] font-extrabold text-slate-700 uppercase border-b border-slate-300 pb-0.5 truncate">
+                  {settings.businessName || 'STORE LABEL'}
+                </div>
+                <div className="text-xs font-black text-slate-900 leading-tight">
+                  {selectedStickerProduct.name}
+                </div>
+                <div className="flex justify-between text-[8px] font-mono font-bold text-slate-800">
+                  <span>SKU: {selectedStickerProduct.sku}</span>
+                  {selectedStickerProduct.barcode && <span>BC: {selectedStickerProduct.barcode}</span>}
+                </div>
+                <div className="font-mono text-center text-xs font-bold tracking-widest text-slate-900 select-none">
+                  ||||| | ||||| |||| ||||| ||
+                </div>
+                <div className="bg-slate-900 text-white px-2 py-0.5 rounded flex items-center justify-between">
+                  <span className="text-[7px] font-bold">PRICE:</span>
+                  <span className="font-mono font-extrabold text-xs text-yellow-300">
+                    {settings.currencySymbol}{selectedStickerProduct.regularPrice.toLocaleString()}
+                    {selectedStickerProduct.unit ? `/${selectedStickerProduct.unit}` : ''}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

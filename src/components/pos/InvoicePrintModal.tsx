@@ -32,9 +32,25 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({ invoice, o
   const totalReturned = invoice.returns?.reduce((s, r) => s + r.totalRefunded, 0) || 0;
 
   // Direct high-fidelity print showing all computer printers via isolated iframe
-  const handlePrint = () => {
+  const handlePrint = React.useCallback(() => {
     printInvoiceSafely(invoice, settings, printFormat);
-  };
+  }, [invoice, settings, printFormat]);
+
+  // Dedicated F3 & print keyboard shortcuts for instant printing
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F3' || (e.ctrlKey && e.key.toLowerCase() === 'p')) {
+        e.preventDefault();
+        e.stopPropagation();
+        handlePrint();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [handlePrint, onClose]);
 
   const handleDownloadPDF = () => {
     downloadInvoicePDF(invoice, settings, printFormat);
@@ -101,9 +117,13 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({ invoice, o
             <button
               onClick={handlePrint}
               className="px-4 py-1.5 text-xs font-bold rounded-xl bg-[#C49A45] hover:bg-[#b58c38] text-white shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Print Invoice (Press F3)"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Invoice</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-black/25 rounded text-white font-extrabold ml-1">
+                F3
+              </kbd>
             </button>
 
             <button
@@ -341,26 +361,29 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({ invoice, o
         <div className="no-print p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <button
             onClick={handleCopySummary}
-            className="px-3.5 py-2 text-xs rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 cursor-pointer font-medium"
+            className={`px-4 py-2 text-xs rounded-xl border border-slate-300 ${copied ? 'bg-emerald-50 text-emerald-700 font-bold' : 'bg-white text-slate-700 hover:bg-slate-100'} cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors font-medium`}
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? 'Copied!' : 'Copy Summary'}</span>
+            <span>{copied ? 'Copied Summary!' : 'Copy Summary'}</span>
           </button>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleCopySummary}
-              className={`px-4 py-2 text-xs rounded-xl border border-slate-300 ${copied ? 'bg-emerald-50 text-emerald-700' : 'bg-white text-slate-700 hover:bg-slate-50'} font-bold cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors`}
-            >
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied!' : 'Copy Summary'}</span>
-            </button>
-            <button
               onClick={handlePrint}
-              className="px-4 py-2 text-xs rounded-xl bg-[#C49A45] hover:bg-[#b58c38] text-white font-bold cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors"
+              className="px-4 py-2 text-xs rounded-xl bg-[#C49A45] hover:bg-[#b58c38] text-white font-extrabold cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors"
+              title="Print Invoice (Press F3)"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Invoice</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-black/25 rounded text-white font-extrabold ml-1">
+                F3
+              </kbd>
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              className="px-3.5 py-2 text-xs rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold cursor-pointer"
+            >
+              PDF
             </button>
             <button
               onClick={handleDownloadHTML}

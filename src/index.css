@@ -68,10 +68,11 @@
     overflow: visible !important;
   }
 
-  /* Hide app navigation, headers, sidebars, and control buttons */
+  /* Hide app navigation, headers, sidebars, main contents, and control buttons */
   header,
   aside,
   nav,
+  main,
   .no-print {
     display: none !important;
   }
@@ -99,7 +100,8 @@
   }
 
   #printable-invoice-area,
-  #printable-voucher-area {
+  #printable-voucher-area,
+  #printable-sticker-area {
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;

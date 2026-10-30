@@ -5,6 +5,7 @@ import { Sidebar, TabType } from './components/Sidebar';
 import { LoginPortal } from './components/auth/LoginPortal';
 import { Lock, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getUserEffectiveModules } from './types';
+import { printInvoiceSafely } from './utils/generateInvoicePDF';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Lazy load modules for ultra-fast initial page load on Vercel
@@ -59,13 +60,40 @@ const POSAppContent: React.FC = () => {
   const [passSuccess, setPassSuccess] = useState('');
 
   const {
+    invoices,
     activePrintInvoice,
     setActivePrintInvoice,
+    settings,
     isAuthenticated,
     currentUser,
     currentRole,
     changeUserPassword,
   } = usePOS();
+
+  // Global F3 Keyboard Shortcut:
+  // - If invoice print modal is already open, it is handled directly inside InvoicePrintModal
+  // - If modal is not currently open, pressing F3 opens the latest invoice and prints it with shop pad & logo
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F3') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (activePrintInvoice) {
+          printInvoiceSafely(activePrintInvoice, settings, 'a4');
+        } else {
+          const targetInv = invoices && invoices.length > 0 ? invoices[0] : null;
+          if (targetInv) {
+            setActivePrintInvoice(targetInv);
+            setTimeout(() => {
+              printInvoiceSafely(targetInv, settings, 'a4');
+            }, 300);
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [activePrintInvoice, invoices, setActivePrintInvoice, settings]);
 
   // Enforce module access: If user does not have permission for activeTab, auto-switch to their first allowed module
   React.useEffect(() => {

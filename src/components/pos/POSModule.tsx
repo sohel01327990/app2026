@@ -45,6 +45,7 @@ export const POSModule: React.FC = () => {
     customers,
     addCustomer,
     createInvoice,
+    setActivePrintInvoice,
     currentUser,
     currentRole,
     selectedCustomerIdForPOS,
@@ -236,7 +237,7 @@ export const POSModule: React.FC = () => {
       });
     }
 
-    createInvoice(
+    const newInv = createInvoice(
       { name: customerNameToUse, phone: customerPhoneToUse, customerId: customerIdToUse },
       cart,
       finalPayments,
@@ -244,6 +245,10 @@ export const POSModule: React.FC = () => {
       discountReason,
       overrideApproved ? overrideApproverName : undefined
     );
+
+    if (newInv) {
+      setActivePrintInvoice(newInv);
+    }
 
     setShowCheckoutModal(false);
     setCartDiscount(0);

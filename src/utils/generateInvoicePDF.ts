@@ -532,11 +532,26 @@ export function generateInvoiceHTML(
   </div>
   <div class="invoice-card">
     <div class="header-bar">
-      <h1 class="biz-name">${settings.businessName}</h1>
-      <div style="font-size: 11px; color: #475569; margin-top: 4px;">
-        ${settings.tagline}<br>
-        ${settings.address} &middot; Phone: ${settings.phone}<br>
-        Trade License / VAT BIN: ${settings.taxId}
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+        <div>
+          ${settings.logoUrl ? `<img src="${settings.logoUrl}" style="height: 44px; max-width: 140px; object-fit: contain; margin-bottom: 6px; display: block;" alt="Shop Logo" />` : ''}
+          <h1 class="biz-name">${settings.businessName}</h1>
+          <div style="font-size: 11px; color: #475569; margin-top: 4px; line-height: 1.4;">
+            ${settings.tagline}<br>
+            ${settings.address} &middot; Phone: ${settings.phone}<br>
+            Trade License / VAT BIN: ${settings.taxId}
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div style="display: inline-block; padding: 4px 12px; background: #0f172a; color: #ffffff; font-weight: bold; font-size: 11px; text-transform: uppercase; border-radius: 4px; margin-bottom: 6px;">
+            COMMERCIAL INVOICE
+          </div>
+          <div style="font-size: 12px; color: #334155; font-family: monospace;"><strong>Invoice #:</strong> ${invoice.id}</div>
+          <div style="font-size: 11px; color: #64748b;"><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString()}</div>
+          <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 4px; color: ${invoice.dueAmount <= 0 ? '#16a34a' : '#e11d48'};">
+            STATUS: ${invoice.dueAmount <= 0 ? 'PAID' : 'UNPAID'}
+          </div>
+        </div>
       </div>
     </div>
     <div class="meta-box">
@@ -614,6 +629,13 @@ export function generateInvoiceHTML(
         : `<div style="text-align: center; margin-top: 14px; font-size: 10px; color: #64748b;">*** THANK YOU FOR YOUR BUSINESS ***</div>`
     }
   </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        try { window.print(); } catch(e){}
+      }, 300);
+    };
+  </script>
 </body>
 </html>`;
 }
@@ -639,58 +661,27 @@ export function printInvoiceSafely(
   settings: CompanySettings,
   format: 'a4' | 'thermal' = 'a4'
 ) {
+  const html = generateInvoiceHTML(invoice, settings, format);
+
+  // Strategy 1: Open Blob URL window tab (bypasses iframe sandbox restrictions, opens native Print Preview in top tab)
   try {
-    const existing = document.getElementById('invoice-print-frame');
-    if (existing && existing.parentNode) {
-      existing.parentNode.removeChild(existing);
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const printWin = window.open(blobUrl, '_blank');
+
+    if (printWin) {
+      printWin.focus();
+      return;
     }
-    
-    const iframe = document.createElement('iframe');
-    iframe.id = 'invoice-print-frame';
-    iframe.style.position = 'fixed';
-    iframe.style.left = '0';
-    iframe.style.top = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.visibility = 'hidden';
-    document.body.appendChild(iframe);
+  } catch (err) {
+    console.warn('Blob window.open blocked by browser:', err);
+  }
 
-    const html = generateInvoiceHTML(invoice, settings, format);
-    
-    // Write content
-    iframe.contentWindow?.document.open();
-    iframe.contentWindow?.document.write(html);
-    iframe.contentWindow?.document.close();
-
-    // Use onload to ensure it's loaded before printing
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch (err) {
-        console.error('Iframe print failed', err);
-        window.print();
-      }
-    };
-
-    // Fallback if onload doesn't fire
-    setTimeout(() => {
-      try {
-        if (!iframe.contentWindow?.document.querySelector('body')?.innerHTML) {
-             throw new Error('Iframe empty');
-        }
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch (err) {
-        console.warn('Iframe print failed, falling back to window.print', err);
-        window.print();
-      }
-    }, 1000); // Increased timeout
-    
-  } catch (e) {
-    console.error('Print failed', e);
+  // Strategy 2: If pop-up window is blocked by browser, execute window.print() on current page
+  try {
     window.print();
+  } catch (e) {
+    console.error('Window print failed:', e);
   }
 }
 
