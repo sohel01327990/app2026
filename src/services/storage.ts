@@ -12,6 +12,7 @@ import {
   CustomerLedgerTransaction,
   Category,
   CashWithdrawal,
+  VendorCategory,
 } from '../types';
 import {
   INITIAL_COMPANY_SETTINGS,
@@ -21,6 +22,7 @@ import {
   INITIAL_PRODUCTS,
   INITIAL_CUSTOMERS,
   INITIAL_SUPPLIERS,
+  INITIAL_VENDOR_CATEGORIES,
   INITIAL_EXPENSES,
   INITIAL_AUDIT_LOGS,
   INITIAL_INVOICES,
@@ -33,6 +35,7 @@ const KEYS = {
   ROLES: 'allnoor_roles_v4',
   USERS: 'allnoor_users_v4',
   CATEGORIES: 'allnoor_categories_v4',
+  VENDOR_CATEGORIES: 'allnoor_vendor_categories_v4',
   CURRENT_USER_ID: 'allnoor_current_user_v4',
   PRODUCTS: 'allnoor_products_v4',
   CUSTOMERS: 'allnoor_customers_v4',
@@ -158,11 +161,17 @@ export const StorageService = {
   },
 
   getSuppliers(): Supplier[] {
-    const sups = safeGet<Supplier[]>(KEYS.SUPPLIERS, []);
-    return sups.filter((s) => s.id !== 'sup_1');
+    return safeGet<Supplier[]>(KEYS.SUPPLIERS, INITIAL_SUPPLIERS);
   },
   saveSuppliers(suppliers: Supplier[]): void {
     safeSet(KEYS.SUPPLIERS, suppliers);
+  },
+
+  getVendorCategories(): VendorCategory[] {
+    return safeGet<VendorCategory[]>(KEYS.VENDOR_CATEGORIES, INITIAL_VENDOR_CATEGORIES);
+  },
+  saveVendorCategories(categories: VendorCategory[]): void {
+    safeSet(KEYS.VENDOR_CATEGORIES, categories);
   },
 
   getExpenses(): Expense[] {

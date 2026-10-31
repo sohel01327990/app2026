@@ -17,6 +17,8 @@ import {
   Coins,
   Receipt,
   Users,
+  FolderPlus,
+  Tag,
 } from 'lucide-react';
 
 export const ExpenseModule: React.FC = () => {
@@ -27,6 +29,9 @@ export const ExpenseModule: React.FC = () => {
     suppliers,
     addSupplier,
     deleteSupplier,
+    vendorCategories,
+    addVendorCategory,
+    deleteVendorCategory,
     recordSupplierPayment,
     invoices,
     getEffectiveInvoiceRevenue,
@@ -45,8 +50,15 @@ export const ExpenseModule: React.FC = () => {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showVendorPaymentModal, setShowVendorPaymentModal] = useState(false);
   const [showVendorAddModal, setShowVendorAddModal] = useState(false);
+  const [showManageVendorCategoriesModal, setShowManageVendorCategoriesModal] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [vendorToDelete, setVendorToDelete] = useState<Supplier | null>(null);
+
+  // Vendor Category Management State
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryDesc, setNewCategoryDesc] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [categorySuccess, setCategorySuccess] = useState('');
 
   // Expense Form State
   const [expenseCategory, setExpenseCategory] = useState<string>('Labor & Unloading');
@@ -68,7 +80,7 @@ export const ExpenseModule: React.FC = () => {
   const [vendorCompanyName, setVendorCompanyName] = useState('');
   const [vendorContactPerson, setVendorContactPerson] = useState('');
   const [vendorPhone, setVendorPhone] = useState('');
-  const [vendorCategory, setVendorCategory] = useState('Cement Supplier');
+  const [vendorCategory, setVendorCategory] = useState<string>(() => vendorCategories[0]?.name || 'Cement Supplier');
   const [vendorOpeningPayable, setVendorOpeningPayable] = useState<number>(0);
   const [vendorPaymentTerms, setVendorPaymentTerms] = useState('15 Days Credit');
 
@@ -255,6 +267,29 @@ export const ExpenseModule: React.FC = () => {
     setVendorContactPerson('');
     setVendorPhone('');
     setVendorOpeningPayable(0);
+  };
+
+  const handleCreateVendorCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCategoryError('');
+    if (!newCategoryName.trim()) {
+      setCategoryError('Category name cannot be empty.');
+      return;
+    }
+    const cleanName = newCategoryName.trim();
+    const exists = vendorCategories.some(
+      (c) => c.name.toLowerCase() === cleanName.toLowerCase()
+    );
+    if (exists) {
+      setCategoryError(`Category "${cleanName}" already exists.`);
+      return;
+    }
+    const created = addVendorCategory(cleanName, newCategoryDesc.trim());
+    setVendorCategory(created.name);
+    setNewCategoryName('');
+    setNewCategoryDesc('');
+    setCategorySuccess(`Vendor Category "${created.name}" created and saved to Firebase!`);
+    setTimeout(() => setCategorySuccess(''), 3000);
   };
 
   return (
@@ -447,13 +482,25 @@ export const ExpenseModule: React.FC = () => {
           )}
 
           {activeTab === 'vendor_accounts' && (
-            <button
-              onClick={() => setShowVendorAddModal(true)}
-              className="px-3.5 py-2 text-xs rounded-xl bg-[#C49A45] hover:bg-[#b58c38] text-white font-bold cursor-pointer shadow-xs transition-colors shrink-0 flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ Add Vendor</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowManageVendorCategoriesModal(true)}
+                className="px-3 py-2 text-xs rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold cursor-pointer shadow-2xs transition-colors shrink-0 flex items-center gap-1.5"
+                title="Manage custom vendor categories (Admin)"
+              >
+                <FolderPlus className="w-3.5 h-3.5 text-[#C49A45]" />
+                <span>Vendor Categories ({vendorCategories.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowVendorAddModal(true)}
+                className="px-3.5 py-2 text-xs rounded-xl bg-[#C49A45] hover:bg-[#b58c38] text-white font-bold cursor-pointer shadow-xs transition-colors shrink-0 flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Vendor</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -976,17 +1023,33 @@ export const ExpenseModule: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Vendor Category</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-700 font-bold">Vendor Category *</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowManageVendorCategoriesModal(true)}
+                      className="text-[11px] font-bold text-[#C49A45] hover:text-[#97732a] hover:underline flex items-center gap-0.5 cursor-pointer"
+                      title="Add or manage custom categories (Admin)"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ New</span>
+                    </button>
+                  </div>
                   <select
+                    required
                     value={vendorCategory}
                     onChange={(e) => setVendorCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-medium"
+                    className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-[#C49A45]"
                   >
-                    <option value="Cement Supplier">Cement Supplier</option>
-                    <option value="Steel & Rebar Manufacturer">Steel & Rebar Manufacturer</option>
-                    <option value="Sand & Aggregates">Sand & Aggregates</option>
-                    <option value="Hardware & Tools">Hardware & Tools</option>
-                    <option value="Transport & Freight">Transport & Freight</option>
+                    {vendorCategories.length === 0 ? (
+                      <option value="">No categories available</option>
+                    ) : (
+                      vendorCategories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
@@ -1060,6 +1123,169 @@ export const ExpenseModule: React.FC = () => {
                 className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-xs cursor-pointer"
               >
                 Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: MANAGE VENDOR CATEGORIES (ADMIN) */}
+      {showManageVendorCategoriesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-3xl bg-white border border-[#EADBCE] shadow-2xl p-6 text-slate-900 space-y-5 my-auto max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-[#C49A45] flex items-center justify-center">
+                  <FolderPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Vendor Categories</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Create & manage supplier categories saved to Firebase Firestore
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowManageVendorCategoriesModal(false);
+                  setCategoryError('');
+                  setCategorySuccess('');
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Notifications */}
+            {categoryError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center gap-2">
+                <span className="font-bold">Error:</span>
+                <span>{categoryError}</span>
+              </div>
+            )}
+            {categorySuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold">{categorySuccess}</span>
+              </div>
+            )}
+
+            {/* Create Category Form */}
+            <form onSubmit={handleCreateVendorCategory} className="space-y-3 p-4 bg-[#FEFAF3] rounded-2xl border border-amber-200/80 text-xs">
+              <span className="font-bold text-slate-900 block text-xs">Create New Vendor Category</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Category Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Sanitary & PVC Fittings"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-[#C49A45]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Description (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Pipes, valves, bathroom fittings"
+                    value={newCategoryDesc}
+                    onChange={(e) => setNewCategoryDesc(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-[#C49A45]"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#C49A45] hover:bg-[#b58c38] text-white font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Save Category to Cloud</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Existing Categories List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
+                <span>Existing Categories ({vendorCategories.length})</span>
+                <span>Actions</span>
+              </div>
+              {vendorCategories.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
+                  <Tag className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                  <p className="text-xs font-semibold">No vendor categories defined</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {vendorCategories.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3 hover:border-amber-300 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 text-xs truncate">{cat.name}</span>
+                          {vendorCategory === cat.name && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                        {cat.description && (
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">{cat.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVendorCategory(cat.name);
+                            setCategorySuccess(`Selected "${cat.name}" for new vendors.`);
+                            setTimeout(() => setCategorySuccess(''), 2000);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                        >
+                          Select
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Delete vendor category "${cat.name}"?`)) {
+                              deleteVendorCategory(cat.id);
+                              if (vendorCategory === cat.name) {
+                                const remaining = vendorCategories.filter((c) => c.id !== cat.id);
+                                setVendorCategory(remaining[0]?.name || '');
+                              }
+                            }
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+                          title="Delete category"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowManageVendorCategoriesModal(false);
+                  setCategoryError('');
+                  setCategorySuccess('');
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-xs cursor-pointer"
+              >
+                Done
               </button>
             </div>
           </div>

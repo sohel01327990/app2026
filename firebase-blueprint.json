@@ -129,6 +129,18 @@
       },
       "required": ["id", "amount", "date", "description"]
     },
+    "VendorCategory": {
+      "title": "VendorCategory",
+      "description": "Vendor and supplier business categories created and managed by Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
     "Supplier": {
       "title": "Supplier",
       "description": "Wholesale vendors and material suppliers",
@@ -318,6 +330,10 @@
     "/suppliers/{supplierId}": {
       "schema": "Supplier",
       "description": "Wholesale suppliers and payables"
+    },
+    "/vendor_categories/{categoryId}": {
+      "schema": "VendorCategory",
+      "description": "Vendor classification categories managed dynamically by Admin"
     },
     "/roles/{roleId}": {
       "schema": "DynamicRole",

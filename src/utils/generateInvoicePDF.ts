@@ -1108,3 +1108,171 @@ export function printMonthlyReportSafely(data: MonthlyReportPrintParams) {
   }
 }
 
+export function printBestProductReportSafely(data: {
+  startDate: string;
+  endDate: string;
+  settings: CompanySettings;
+  products: Array<{
+    rank: number;
+    name: string;
+    sku: string;
+    category: string;
+    currentStock: number;
+    totalQtySold: number;
+    totalRevenue: number;
+    classificationLabel: string;
+  }>;
+  summary: {
+    highDemandCount: number;
+    moderateDemandCount: number;
+    slowMovingCount: number;
+    zeroSalesCount: number;
+    totalUnitsSold: number;
+    totalRevenue: number;
+  };
+}): void {
+  try {
+    const curr = data.settings.currencySymbol || 'OMR';
+    let iframe = document.getElementById('report-print-iframe') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'report-print-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+    }
+
+    const prodRows = data.products
+      .map(
+        (p) => `
+      <tr>
+        <td style="text-align: center; font-weight: bold; font-family: monospace;">#${p.rank}</td>
+        <td style="font-weight: bold; color: #0f172a;">${p.name} <span style="font-size: 9px; color: #64748b; font-family: monospace;">(${p.sku})</span></td>
+        <td>${p.category || 'General'}</td>
+        <td style="text-align: center; font-family: monospace;">${p.currentStock}</td>
+        <td style="text-align: center; font-family: monospace; font-weight: bold;">${p.totalQtySold}</td>
+        <td style="text-align: right; font-family: monospace; font-weight: bold; color: #0f172a;">${curr} ${formatCurrencyAmount(p.totalRevenue)}</td>
+        <td style="text-align: center;">
+          <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; ${
+            p.classificationLabel.includes('High')
+              ? 'background: #dcfce7; color: #166534;'
+              : p.classificationLabel.includes('Moderate')
+              ? 'background: #fef3c7; color: #92400e;'
+              : p.classificationLabel.includes('Slow')
+              ? 'background: #ffe4e6; color: #9f1239;'
+              : 'background: #f1f5f9; color: #475569;'
+          }">
+            ${p.classificationLabel}
+          </span>
+        </td>
+      </tr>`
+      )
+      .join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Best Product & Sales Velocity Report - ${data.settings.businessName}</title>
+  <style>
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 15px; color: #0f172a; font-size: 11px; }
+    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #c49a45; padding-bottom: 8px; margin-bottom: 12px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .kpi-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+    th { background: #f1f5f9; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; font-size: 9.5px; text-transform: uppercase; color: #334155; }
+    td { padding: 5px 8px; border: 1px solid #e2e8f0; }
+    .footer { margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: space-between; }
+    .sig-line { border-top: 1px solid #94a3b8; width: 140px; text-align: center; padding-top: 3px; font-size: 9px; color: #475569; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 800;">${data.settings.businessName}</h2>
+      <p style="margin: 0; color: #475569; font-size: 11px;">${data.settings.tagline || ''}</p>
+      <p style="margin: 2px 0 0 0; color: #475569; font-size: 11px;">${data.settings.address} &middot; Phone: ${data.settings.phone}</p>
+    </div>
+    <div style="text-align: right;">
+      <span style="display: inline-block; background: #c49a45; color: white; font-weight: bold; padding: 4px 10px; border-radius: 4px; font-size: 11px;">BEST PRODUCT ANALYTICS REPORT</span>
+      <p style="margin: 6px 0 0 0; font-weight: bold; font-size: 11px; color: #0f172a;">Period: ${data.startDate} to ${data.endDate}</p>
+      <p style="margin: 2px 0 0 0; font-size: 10px; color: #64748b;">Generated: ${new Date().toLocaleString()}</p>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card" style="border-left: 3px solid #16a34a;">
+      <div style="font-size: 9px; color: #166534; font-weight: bold; text-transform: uppercase;">High Demand (Best Sellers)</div>
+      <div style="font-size: 16px; font-weight: 800; color: #16a34a;">${data.summary.highDemandCount} Products</div>
+      <div style="font-size: 8.5px; color: #64748b;">Fastest moving stock</div>
+    </div>
+    <div class="kpi-card" style="border-left: 3px solid #d97706;">
+      <div style="font-size: 9px; color: #92400e; font-weight: bold; text-transform: uppercase;">Moderate Demand</div>
+      <div style="font-size: 16px; font-weight: 800; color: #d97706;">${data.summary.moderateDemandCount} Products</div>
+      <div style="font-size: 8.5px; color: #64748b;">Steady sales volume</div>
+    </div>
+    <div class="kpi-card" style="border-left: 3px solid #e11d48;">
+      <div style="font-size: 9px; color: #9f1239; font-weight: bold; text-transform: uppercase;">Slow Moving / Low Demand</div>
+      <div style="font-size: 16px; font-weight: 800; color: #e11d48;">${data.summary.slowMovingCount} Products</div>
+      <div style="font-size: 8.5px; color: #64748b;">Low sales frequency</div>
+    </div>
+    <div class="kpi-card" style="border-left: 3px solid #64748b;">
+      <div style="font-size: 9px; color: #334155; font-weight: bold; text-transform: uppercase;">Zero Sales / Idle Stock</div>
+      <div style="font-size: 16px; font-weight: 800; color: #475569;">${data.summary.zeroSalesCount} Products</div>
+      <div style="font-size: 8.5px; color: #64748b;">No invoice purchases</div>
+    </div>
+  </div>
+
+  <h4 style="margin: 12px 0 6px 0; font-size: 12px; font-weight: bold;">Ranked Product Sales & Demand Classification Table</h4>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 35px; text-align: center;">Rank</th>
+        <th>Product Name & SKU</th>
+        <th>Category</th>
+        <th style="text-align: center;">Yard Stock</th>
+        <th style="text-align: center;">Units Sold</th>
+        <th style="text-align: right;">Total Revenue</th>
+        <th style="text-align: center;">Classification</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${prodRows || '<tr><td colspan="7" style="text-align: center; padding: 10px; color: #94a3b8;">No products found</td></tr>'}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div class="sig-line">Prepared By (Inventory Specialist)</div>
+    <div class="sig-line">Verified By (Store Manager)</div>
+    <div class="sig-line">Approved By (Owner)</div>
+  </div>
+</body>
+</html>`;
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (err) {
+          window.print();
+        }
+      }, 300);
+    }
+  } catch (e) {
+    console.warn('Best product report print fallback:', e);
+    window.print();
+  }
+}
+
+

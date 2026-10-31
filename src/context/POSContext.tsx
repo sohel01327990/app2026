@@ -22,6 +22,7 @@ import {
   DueRecord,
   ProfitAnalyticsRecord,
   CashWithdrawal,
+  VendorCategory,
 } from '../types';
 import { INITIAL_USERS } from '../data/initialData';
 import { StorageService } from '../services/storage';
@@ -137,6 +138,9 @@ export interface POSContextType {
   suppliers: Supplier[];
   addSupplier: (sup: Omit<Supplier, 'id'> & { balancePayable?: number }) => void;
   deleteSupplier: (id: string) => void;
+  vendorCategories: VendorCategory[];
+  addVendorCategory: (name: string, description?: string) => VendorCategory;
+  deleteVendorCategory: (id: string) => void;
   recordSupplierPayment: (
     supplierId: string,
     amount: number,
@@ -251,6 +255,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [products, setProducts] = useState<Product[]>(() => StorageService.getProducts());
   const [customers, setCustomers] = useState<Customer[]>(() => StorageService.getCustomers());
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => StorageService.getSuppliers());
+  const [vendorCategories, setVendorCategories] = useState<VendorCategory[]>(() =>
+    StorageService.getVendorCategories()
+  );
   const [expenses, setExpenses] = useState<Expense[]>(() => StorageService.getExpenses());
   const [invoices, setInvoices] = useState<Invoice[]>(() => StorageService.getInvoices());
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => StorageService.getAuditLogs());
@@ -294,6 +301,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           FirebaseSyncService.seedInitialDataIfEmpty({
             settings: StorageService.getCompanySettings(),
             categories: StorageService.getCategories(),
+            vendorCategories: StorageService.getVendorCategories(),
             products: StorageService.getProducts(),
             roles: StorageService.getRoles(),
             users: StorageService.getUsers(),
@@ -324,6 +332,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubCategories = FirebaseSyncService.listenToCategories((cloudCategories) => {
       setCategories(cloudCategories);
       StorageService.saveCategories(cloudCategories);
+    });
+
+    const unsubVendorCategories = FirebaseSyncService.listenToVendorCategories((cloudVC) => {
+      if (cloudVC && cloudVC.length > 0) {
+        setVendorCategories(cloudVC);
+        StorageService.saveVendorCategories(cloudVC);
+      }
     });
 
     const unsubProducts = FirebaseSyncService.listenToProducts((cloudProducts) => {
@@ -421,6 +436,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       clearTimeout(seedAnalyticsTimer);
       unsubSettings();
       unsubCategories();
+      unsubVendorCategories();
       unsubProducts();
       unsubCustomers();
       unsubInvoices();
@@ -1634,6 +1650,49 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuditLogs(StorageService.getAuditLogs());
   };
 
+  const addVendorCategory = (name: string, description?: string): VendorCategory => {
+    const id = `vcat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newCat: VendorCategory = {
+      id,
+      name: name.trim(),
+      description: description?.trim() || '',
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...vendorCategories, newCat];
+    setVendorCategories(updated);
+    StorageService.saveVendorCategories(updated);
+    FirebaseSyncService.saveVendorCategory(newCat).catch(console.warn);
+    StorageService.logAction(
+      currentUser.id,
+      currentUser.name,
+      'SETTINGS_CHANGED',
+      'VENDOR_CATEGORY',
+      id,
+      `Created vendor category: ${newCat.name}`
+    );
+    setAuditLogs(StorageService.getAuditLogs());
+    return newCat;
+  };
+
+  const deleteVendorCategory = (id: string) => {
+    const target = vendorCategories.find((c) => c.id === id);
+    const updated = vendorCategories.filter((c) => c.id !== id);
+    setVendorCategories(updated);
+    StorageService.saveVendorCategories(updated);
+    FirebaseSyncService.deleteVendorCategory(id).catch(console.warn);
+    if (target) {
+      StorageService.logAction(
+        currentUser.id,
+        currentUser.name,
+        'SETTINGS_CHANGED',
+        'VENDOR_CATEGORY',
+        id,
+        `Removed vendor category: ${target.name}`
+      );
+      setAuditLogs(StorageService.getAuditLogs());
+    }
+  };
+
   const recordSupplierPayment = (
     supplierId: string,
     amount: number,
@@ -2530,6 +2589,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await FirebaseSyncService.pushFullStoreToCloud({
         settings,
         categories,
+        vendorCategories,
         products,
         customers,
         invoices,
@@ -2552,6 +2612,10 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (cloud.categories && cloud.categories.length > 0) {
         setCategories(cloud.categories);
         StorageService.saveCategories(cloud.categories);
+      }
+      if (cloud.vendorCategories && cloud.vendorCategories.length > 0) {
+        setVendorCategories(cloud.vendorCategories);
+        StorageService.saveVendorCategories(cloud.vendorCategories);
       }
       if (cloud.products && cloud.products.length > 0) {
         setProducts(cloud.products);
@@ -2655,6 +2719,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         suppliers,
         addSupplier,
         deleteSupplier,
+        vendorCategories,
+        addVendorCategory,
+        deleteVendorCategory,
         recordSupplierPayment,
         expenses,
         addExpense,

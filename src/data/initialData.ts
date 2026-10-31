@@ -10,6 +10,7 @@ import {
   Invoice,
   CustomerLedgerTransaction,
   Category,
+  VendorCategory,
 } from '../types';
 
 export const INITIAL_COMPANY_SETTINGS: CompanySettings = {
@@ -131,6 +132,15 @@ export const INITIAL_SUPPLIERS: Supplier[] = [
     balancePayable: 850,
     paymentTerms: '10 Days Credit',
   },
+];
+export const INITIAL_VENDOR_CATEGORIES: VendorCategory[] = [
+  { id: 'vcat_1', name: 'Cement Supplier', description: 'Portland, composite & slag cement' },
+  { id: 'vcat_2', name: 'Steel & Rebar Manufacturer', description: 'Deformed TMT 500W rebar, coils & wire' },
+  { id: 'vcat_3', name: 'Sand & Aggregates', description: 'River sand, Sylhet sand, stone chips, gravel' },
+  { id: 'vcat_4', name: 'Hardware & Tools', description: 'Power tools, fasteners, safety gear' },
+  { id: 'vcat_5', name: 'Transport & Freight', description: 'Trucking, flatbeds, logistics delivery' },
+  { id: 'vcat_6', name: 'Electrical & Sanitary', description: 'Pipes, fittings, cables, sanitary ware' },
+  { id: 'vcat_7', name: 'Bricks & Blocks', description: 'Auto kiln red bricks, hollow concrete blocks' },
 ];
 export const INITIAL_EXPENSES: Expense[] = [];
 export const INITIAL_INVOICES: Invoice[] = [];

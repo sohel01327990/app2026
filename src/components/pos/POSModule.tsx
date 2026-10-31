@@ -87,6 +87,7 @@ export const POSModule: React.FC = () => {
 
   // Discount & Checkout modal
   const [cartDiscount, setCartDiscount] = useState<number>(0);
+  const [discountInput, setDiscountInput] = useState<string>('');
   const [discountReason, setDiscountReason] = useState<string>('');
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
@@ -155,6 +156,12 @@ export const POSModule: React.FC = () => {
   const openCheckout = () => {
     setPayments([{ method: 'cash', amount: grandTotal, reference: '' }]);
     setShowCheckoutModal(true);
+  };
+
+  const handleClearCart = () => {
+    clearCart();
+    setCartDiscount(0);
+    setDiscountInput('');
   };
 
   const updateSplitPayment = (index: number, updates: Partial<SplitPayment>) => {
@@ -252,6 +259,7 @@ export const POSModule: React.FC = () => {
 
     setShowCheckoutModal(false);
     setCartDiscount(0);
+    setDiscountInput('');
     setDiscountReason('');
     setOverrideApproved(false);
     setOverrideApproverName('');
@@ -395,9 +403,9 @@ export const POSModule: React.FC = () => {
                   <tr>
                     <th className="py-1.5 px-2.5 border-r border-slate-300 w-24 md:w-28 whitespace-nowrap">Code</th>
                     <th className="py-1.5 px-2.5 border-r border-slate-300 min-w-[140px] md:min-w-[200px]">Item Name</th>
+                    <th className="py-1.5 px-2.5 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">MRP</th>
                     <th className="py-1.5 px-2.5 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">Min Tk</th>
                     <th className="py-1.5 px-2.5 border-r border-slate-300 text-center w-20 md:w-24 whitespace-nowrap">Stock</th>
-                    <th className="py-1.5 px-2.5 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">MRP</th>
                     <th className="py-1.5 px-2 text-center w-16 md:w-20 whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
@@ -437,6 +445,12 @@ export const POSModule: React.FC = () => {
                           <span>{cleanItemName(prod.name)}</span>
                         </td>
 
+                        {/* MRP Column */}
+                        <td className="py-1.5 px-2.5 border-r border-slate-300/60 text-right font-mono font-extrabold text-sm whitespace-nowrap">
+                          {settings.currencySymbol}
+                          {Number(prod.regularPrice).toFixed(3)}
+                        </td>
+
                         {/* Min Tk Column */}
                         <td className="py-1.5 px-2.5 border-r border-slate-300/60 text-right font-mono whitespace-nowrap">
                           <span className={isSelected ? 'text-blue-100 font-bold' : 'text-slate-700 font-bold'}>
@@ -457,12 +471,6 @@ export const POSModule: React.FC = () => {
                           >
                             {prod.currentStock.toLocaleString()} {prod.unit}
                           </span>
-                        </td>
-
-                        {/* MRP Column */}
-                        <td className="py-1.5 px-2.5 border-r border-slate-300/60 text-right font-mono font-extrabold text-sm whitespace-nowrap">
-                          {settings.currencySymbol}
-                          {Number(prod.regularPrice).toFixed(3)}
                         </td>
 
                         {/* Action Column */}
@@ -931,9 +939,15 @@ export const POSModule: React.FC = () => {
               <input
                 type="number"
                 min="0"
+                step="any"
                 placeholder="0"
-                value={cartDiscount || ''}
-                onChange={(e) => setCartDiscount(parseFloat(e.target.value) || 0)}
+                value={discountInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDiscountInput(val);
+                  const parsed = parseFloat(val);
+                  setCartDiscount(isNaN(parsed) ? 0 : parsed);
+                }}
                 className="w-24 px-2 py-0.5 text-xs text-right font-mono font-bold rounded-lg bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:outline-none"
               />
             </div>
@@ -953,7 +967,7 @@ export const POSModule: React.FC = () => {
 
           <div className="flex items-center gap-2 pt-1">
             <button
-              onClick={clearCart}
+              onClick={handleClearCart}
               disabled={cart.length === 0}
               className="px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors disabled:opacity-40 cursor-pointer"
             >

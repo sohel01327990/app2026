@@ -706,9 +706,20 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                 <span className="text-slate-500 block">Customer:</span>
                 <strong className="text-slate-900 text-sm block">{selectedCustForPayment.name}</strong>
                 {selectedInvoiceForPayment ? (
-                  <span className="text-[10px] text-[#C49A45] font-mono font-bold block mt-0.5">
-                    Target Invoice: #{selectedInvoiceForPayment.id}
-                  </span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-[#C49A45] font-mono font-bold block">
+                      Target Invoice: #{selectedInvoiceForPayment.id}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActivePrintInvoice(selectedInvoiceForPayment)}
+                      className="px-2 py-0.5 rounded bg-amber-50 hover:bg-[#C49A45] text-[#C49A45] hover:text-white border border-[#C49A45]/40 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Print Invoice Summary"
+                    >
+                      <Printer className="w-3 h-3" />
+                      <span>Print Summary</span>
+                    </button>
+                  </div>
                 ) : (
                   <span className="text-[10px] text-emerald-700 font-mono font-bold block mt-0.5">
                     Target: Total Due ({customerDueInvoices.length} Invoices)
@@ -750,20 +761,36 @@ export const DueManagementModule: React.FC<DueManagementModuleProps> = ({ onNavi
                             : 'bg-white border-slate-200 hover:bg-amber-50 text-slate-800'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <span className={`w-3 h-3 rounded-full border flex items-center justify-center shrink-0 ${
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
                             isSelected ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300'
                           }`}>
                             {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
                           </span>
-                          <div>
+                          <div className="min-w-0">
                             <span className="font-mono font-bold text-[#C49A45]">Invoice #{inv.id}</span>
-                            <span className="text-[10px] text-slate-500 ml-2">({new Date(inv.createdAt).toLocaleDateString()})</span>
+                            <span className="text-[10px] text-slate-500 ml-1.5">({new Date(inv.createdAt).toLocaleDateString()})</span>
                           </div>
                         </div>
-                        <span className="font-mono font-extrabold text-rose-600">
-                          {settings.currencySymbol}{Number(inv.dueAmount).toFixed(3)}
-                        </span>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-mono font-extrabold text-rose-600">
+                            {settings.currencySymbol}{Number(inv.dueAmount).toFixed(3)}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActivePrintInvoice(inv);
+                            }}
+                            className="px-2 py-0.5 rounded bg-white hover:bg-amber-100 text-[#C49A45] hover:text-[#856324] border border-amber-300 cursor-pointer flex items-center gap-1 text-[10px] font-bold shadow-2xs transition-colors"
+                            title={`Print / Preview Summary for Invoice #${inv.id}`}
+                          >
+                            <Printer className="w-3 h-3 text-[#C49A45]" />
+                            <span>Print</span>
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

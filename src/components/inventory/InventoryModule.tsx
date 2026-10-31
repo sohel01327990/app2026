@@ -26,6 +26,7 @@ export const InventoryModule: React.FC = () => {
     updateProduct,
     deleteProduct,
     logStockAdjustment,
+    stockAdjustments,
     currentRole,
     settings,
   } = usePOS();
@@ -95,9 +96,56 @@ export const InventoryModule: React.FC = () => {
 
   // Waste Form
   const [wasteProductId, setWasteProductId] = useState('');
-  const [wasteQty, setWasteQty] = useState(2);
+  const [wasteQty, setWasteQty] = useState(1);
   const [wasteType, setWasteType] = useState<StockAdjustment['type']>('damage');
   const [wasteReason, setWasteReason] = useState('Damaged during rain/unloading');
+  const [wasteSearchQuery, setWasteSearchQuery] = useState('');
+  const wasteQtyInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredWasteProducts = useMemo(() => {
+    const q = wasteSearchQuery.toLowerCase().trim();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        p.barcode.includes(q) ||
+        p.brand.toLowerCase().includes(q)
+    );
+  }, [products, wasteSearchQuery]);
+
+  useEffect(() => {
+    if (showWasteModal && filteredWasteProducts.length > 0) {
+      const isCurrentInFiltered = filteredWasteProducts.some((p) => p.id === wasteProductId);
+      if (!isCurrentInFiltered) {
+        setWasteProductId(filteredWasteProducts[0].id);
+      }
+    }
+  }, [filteredWasteProducts, showWasteModal, wasteProductId]);
+
+  const selectedWasteProd = useMemo(() => {
+    return products.find((p) => p.id === wasteProductId) || filteredWasteProducts[0];
+  }, [products, wasteProductId, filteredWasteProducts]);
+
+  const handleWasteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetId = wasteProductId || filteredWasteProducts[0]?.id;
+    if (!targetId) return;
+    const prod = products.find((p) => p.id === targetId);
+    if (!prod) return;
+    const qtyToDeduct = Number(wasteQty);
+    if (isNaN(qtyToDeduct) || qtyToDeduct <= 0) return;
+
+    logStockAdjustment(
+      targetId,
+      wasteType,
+      qtyToDeduct,
+      prod.unit,
+      wasteReason.trim() || 'Damage / Waste deduction'
+    );
+    setShowWasteModal(false);
+    setWasteSearchQuery('');
+  };
 
   // Calculator
   const [calcInputVal, setCalcInputVal] = useState(1);
@@ -207,14 +255,6 @@ export const InventoryModule: React.FC = () => {
     setInwardSearchQuery('');
   };
 
-  const handleWasteSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const prod = products.find((p) => p.id === wasteProductId);
-    if (!prod) return;
-    logStockAdjustment(wasteProductId, wasteType, Number(wasteQty), prod.unit, wasteReason);
-    setShowWasteModal(false);
-  };
-
   return (
     <div className="p-4 sm:p-6 pb-28 space-y-6 max-w-7xl mx-auto font-sans text-slate-800 bg-[#FEFAF3]">
       {/* Top Header & Actions */}
@@ -263,6 +303,8 @@ export const InventoryModule: React.FC = () => {
               <button
                 onClick={() => {
                   setWasteProductId(products[0]?.id || '');
+                  setWasteSearchQuery('');
+                  setWasteQty(1);
                   setShowWasteModal(true);
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 font-bold cursor-pointer"
@@ -432,6 +474,64 @@ export const InventoryModule: React.FC = () => {
                       <Plus className="w-4 h-4" />
                       <span>Add First Product</span>
                     </button>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Damage & Waste Audit History Table */}
+      <div className="rounded-2xl bg-white border border-[#EADBCE] overflow-hidden shadow-xs mt-6">
+        <div className="p-4 bg-[#FEFAF3] border-b border-[#EADBCE] flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              <span>Damage, Breakage & Waste Loss History Log</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Historical record of stock deductions due to damage, rain, breakage, and audit losses
+            </p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300">
+              <tr>
+                <th className="py-2.5 px-3 border-r border-slate-300">Date & Time</th>
+                <th className="py-2.5 px-3 border-r border-slate-300">Material Name</th>
+                <th className="py-2.5 px-3 border-r border-slate-300 text-center">Loss Type</th>
+                <th className="py-2.5 px-3 border-r border-slate-300 text-right">Deducted Qty</th>
+                <th className="py-2.5 px-3 border-r border-slate-300">Reason / Narration</th>
+                <th className="py-2.5 px-3 text-center">Logged By</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {stockAdjustments
+                .filter((adj) => adj.type !== 'inward_purchase')
+                .map((adj) => (
+                  <tr key={adj.id} className="hover:bg-rose-50/30 transition-colors">
+                    <td className="py-2 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                      {new Date(adj.date).toLocaleString()}
+                    </td>
+                    <td className="py-2 px-3 font-bold text-slate-900">{adj.productName}</td>
+                    <td className="py-2 px-3 text-center">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-800 border border-rose-300">
+                        {adj.type.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-rose-700 tabular-nums">
+                      -{adj.quantity.toLocaleString()} {adj.unit}
+                    </td>
+                    <td className="py-2 px-3 text-slate-600 font-medium">{adj.reason}</td>
+                    <td className="py-2 px-3 text-center text-slate-500 text-[11px]">{adj.loggedBy}</td>
+                  </tr>
+                ))}
+              {stockAdjustments.filter((adj) => adj.type !== 'inward_purchase').length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                    No damage or waste stock deductions logged yet.
                   </td>
                 </tr>
               )}
@@ -830,6 +930,177 @@ export const InventoryModule: React.FC = () => {
                   className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer"
                 >
                   Add to Yard Stock
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Waste / Damage Modal */}
+      {showWasteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white border border-rose-200 p-6 shadow-2xl space-y-3">
+            <h3 className="text-base font-bold text-rose-700 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-rose-600" />
+              <span>Log Damage, Breakage or Waste</span>
+            </h3>
+            <form onSubmit={handleWasteSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Select Material * (Code | Item Name | Stock)</label>
+                <div className="mb-2 relative">
+                  <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search material by name, SKU, barcode..."
+                    value={wasteSearchQuery}
+                    onChange={(e) => setWasteSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (filteredWasteProducts.length > 0) {
+                          setWasteProductId(filteredWasteProducts[0].id);
+                          wasteQtyInputRef.current?.focus();
+                          wasteQtyInputRef.current?.select();
+                        }
+                      }
+                    }}
+                    className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-rose-500 font-medium"
+                  />
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto mb-2">
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead className="bg-[#EBEBEB] text-slate-700 font-bold border-b border-slate-300 sticky top-0 z-10">
+                      <tr>
+                        <th className="py-1 px-2 border-r border-slate-300 w-24">Code</th>
+                        <th className="py-1 px-2 border-r border-slate-300">Item Name</th>
+                        <th className="py-1 px-2 border-r border-slate-300 text-center w-20">Stock</th>
+                        <th className="py-1 px-2 text-right w-20">MRP</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredWasteProducts.slice(0, 50).map((p) => {
+                        const isSelected = p.id === wasteProductId;
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={() => {
+                              setWasteProductId(p.id);
+                              wasteQtyInputRef.current?.focus();
+                              wasteQtyInputRef.current?.select();
+                            }}
+                            className={`cursor-pointer transition-colors select-none ${
+                              isSelected
+                                ? 'bg-rose-600 text-white font-bold'
+                                : 'hover:bg-amber-50 text-slate-800'
+                            }`}
+                          >
+                            <td className="py-1 px-2 border-r border-slate-200/50 font-mono whitespace-nowrap">
+                              <span className="flex items-center gap-1">
+                                {isSelected ? (
+                                  <span className="text-amber-300">▸</span>
+                                ) : (
+                                  <span className="inline-block w-2"></span>
+                                )}
+                                <span>{p.sku}</span>
+                              </span>
+                            </td>
+                            <td className="py-1 px-2 border-r border-slate-200/50 truncate max-w-[150px]">
+                              {p.name}
+                            </td>
+                            <td className="py-1 px-2 border-r border-slate-200/50 text-center font-mono whitespace-nowrap">
+                              {p.currentStock} {p.unit}
+                            </td>
+                            <td className="py-1 px-2 text-right font-mono font-bold whitespace-nowrap">
+                              {settings.currencySymbol}{Number(p.regularPrice).toFixed(3)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredWasteProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-4 text-center text-slate-400">
+                            No materials found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {selectedWasteProd && (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-950 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Selected Material</span>
+                    <strong className="text-slate-900 text-xs block font-bold">{selectedWasteProd.name}</strong>
+                    <span className="text-[10px] text-slate-500 font-mono">SKU: {selectedWasteProd.sku}</span>
+                  </div>
+                  <div className="text-right font-mono">
+                    <span className="text-[10px] text-slate-500 block">Stock Deduction Preview</span>
+                    <span className="text-slate-700">{selectedWasteProd.currentStock}</span>
+                    <span className="text-rose-700 font-bold"> - {Number(wasteQty) || 0}</span>
+                    <span className="font-extrabold text-rose-800 block text-xs">
+                      = {Math.max(0, Number(selectedWasteProd.currentStock) - (Number(wasteQty) || 0)).toLocaleString()} {selectedWasteProd.unit}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Loss Type</label>
+                  <select
+                    value={wasteType}
+                    onChange={(e) => setWasteType(e.target.value as StockAdjustment['type'])}
+                    className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 cursor-pointer"
+                  >
+                    <option value="damage">Damage</option>
+                    <option value="breakage">Breakage</option>
+                    <option value="waste">Waste</option>
+                    <option value="yard_audit_loss">Yard Audit Loss</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Quantity to Deduct *</label>
+                  <input
+                    ref={wasteQtyInputRef}
+                    type="number"
+                    min="1"
+                    required
+                    value={wasteQty}
+                    onChange={(e) => setWasteQty(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 font-mono font-bold focus:bg-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Reason / Explanation *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Damaged during rain / broken during unloading"
+                  value={wasteReason}
+                  onChange={(e) => setWasteReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowWasteModal(false)}
+                  className="flex-1 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold cursor-pointer shadow-md"
+                >
+                  Confirm & Deduct Stock
                 </button>
               </div>
             </form>

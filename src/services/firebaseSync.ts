@@ -25,6 +25,7 @@ import {
   DueRecord,
   ProfitAnalyticsRecord,
   CashWithdrawal,
+  VendorCategory,
 } from '../types';
 
 export interface CloudSyncStatus {
@@ -400,15 +401,55 @@ export const FirebaseSyncService = {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        snapshot.docs.forEach((d) => {
-          if (d.id === 'sup_1') {
-            deleteDoc(d.ref).catch(() => {});
-          }
-        });
         const items = snapshot.docs
           .map((d) => d.data() as Supplier)
-          .filter((s) => s.id !== 'sup_1' && !isRecentlyDeleted(s.id));
+          .filter((s) => !isRecentlyDeleted(s.id));
         items.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+        callback(items);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+      }
+    );
+  },
+
+  // ==================== VENDOR CATEGORIES ====================
+  async saveVendorCategory(category: VendorCategory): Promise<void> {
+    const path = 'vendor_categories';
+    const cleanId = sanitizeId(category.id);
+    try {
+      const payload = cleanForFirestore({
+        ...category,
+        id: cleanId,
+        createdAt: category.createdAt || new Date().toISOString(),
+      });
+      await setDoc(doc(db, path, cleanId), payload);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${path}/${cleanId}`);
+    }
+  },
+
+  async deleteVendorCategory(categoryId: string): Promise<void> {
+    const path = 'vendor_categories';
+    const cleanId = sanitizeId(categoryId);
+    markAsRecentlyDeleted(cleanId);
+    markAsRecentlyDeleted(categoryId);
+    try {
+      await deleteDoc(doc(db, path, cleanId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${cleanId}`);
+    }
+  },
+
+  listenToVendorCategories(callback: (categories: VendorCategory[]) => void): () => void {
+    const path = 'vendor_categories';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const items = snapshot.docs
+          .map((d) => d.data() as VendorCategory)
+          .filter((c) => !isRecentlyDeleted(c.id));
+        items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         callback(items);
       },
       (error) => {
@@ -747,6 +788,7 @@ export const FirebaseSyncService = {
   async seedInitialDataIfEmpty(data: {
     settings: CompanySettings;
     categories?: Category[];
+    vendorCategories?: VendorCategory[];
     products?: Product[];
     roles: DynamicRole[];
     users: User[];
@@ -767,8 +809,35 @@ export const FirebaseSyncService = {
         for (const user of data.users) {
           await this.saveUser(user);
         }
+        if (data.vendorCategories) {
+          for (const vc of data.vendorCategories) {
+            await this.saveVendorCategory(vc);
+          }
+        }
+        if (data.suppliers) {
+          for (const sup of data.suppliers) {
+            await this.saveSupplier(sup);
+          }
+        }
         return true;
       }
+
+      // Check if vendor categories are empty in Firestore and seed them
+      const snapVC = await getDocs(collection(db, 'vendor_categories'));
+      if (snapVC.empty && data.vendorCategories && data.vendorCategories.length > 0) {
+        for (const vc of data.vendorCategories) {
+          await this.saveVendorCategory(vc);
+        }
+      }
+
+      // Check if suppliers are empty in Firestore and seed initial ones
+      const snapSuppliers = await getDocs(collection(db, 'suppliers'));
+      if (snapSuppliers.empty && data.suppliers && data.suppliers.length > 0) {
+        for (const sup of data.suppliers) {
+          await this.saveSupplier(sup);
+        }
+      }
+
       return false;
     } catch (err) {
       console.warn('Initial admin seed check (offline/cached):', err);
@@ -779,6 +848,7 @@ export const FirebaseSyncService = {
   async pushFullStoreToCloud(data: {
     settings: CompanySettings;
     categories: Category[];
+    vendorCategories?: VendorCategory[];
     products: Product[];
     customers: Customer[];
     invoices: Invoice[];
@@ -796,6 +866,12 @@ export const FirebaseSyncService = {
       for (const cat of data.categories) {
         await this.saveCategory(cat);
         count++;
+      }
+      if (data.vendorCategories) {
+        for (const vc of data.vendorCategories) {
+          await this.saveVendorCategory(vc);
+          count++;
+        }
       }
       for (const prod of data.products) {
         await this.saveProduct(prod);
@@ -840,6 +916,7 @@ export const FirebaseSyncService = {
   async pullFullStoreFromCloud(): Promise<{
     settings?: CompanySettings;
     categories?: Category[];
+    vendorCategories?: VendorCategory[];
     products?: Product[];
     customers?: Customer[];
     invoices?: Invoice[];
@@ -853,6 +930,7 @@ export const FirebaseSyncService = {
     const result: {
       settings?: CompanySettings;
       categories?: Category[];
+      vendorCategories?: VendorCategory[];
       products?: Product[];
       customers?: Customer[];
       invoices?: Invoice[];
@@ -868,6 +946,11 @@ export const FirebaseSyncService = {
       const snapCategories = await getDocs(collection(db, 'categories'));
       if (!snapCategories.empty) {
         result.categories = snapCategories.docs.map((d) => d.data() as Category);
+      }
+
+      const snapVendorCats = await getDocs(collection(db, 'vendor_categories'));
+      if (!snapVendorCats.empty) {
+        result.vendorCategories = snapVendorCats.docs.map((d) => d.data() as VendorCategory);
       }
 
       const snapProducts = await getDocs(collection(db, 'products'));
@@ -935,6 +1018,7 @@ export const FirebaseSyncService = {
       'customer_transactions',
       'expenses',
       'suppliers',
+      'vendor_categories',
       'categories',
       'stock_adjustments',
       'audit_logs',

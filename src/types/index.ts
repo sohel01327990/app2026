@@ -283,6 +283,13 @@ export interface CustomerLedgerTransaction {
   voucherNumber: string;
 }
 
+export interface VendorCategory {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt?: string;
+}
+
 export interface Supplier {
   id: string;
   companyName: string;
