@@ -119,7 +119,7 @@ export const AdminSettingsModule: React.FC = () => {
     if (!configuringUser) return;
     const res = updateUserModules(configuringUser.id, selectedUserModules);
     if (res.success) {
-      setModuleSaveFeedback(`@${configuringUser.username}-এর মডিউল এক্সেস পারমিশন সফলভাবে আপডেট করা হয়েছে।`);
+      setModuleSaveFeedback(`Module access permissions for @${configuringUser.username} updated successfully.`);
       setTimeout(() => setModuleSaveFeedback(null), 4000);
       setConfiguringUser(null);
     }
@@ -210,18 +210,18 @@ export const AdminSettingsModule: React.FC = () => {
         if (res.firebaseRegistered) {
           setUserFeedback({
             type: 'success',
-            message: `Operator @${newUserUsername.trim()} তৈরি হয়েছে এবং Firebase Authentication-এ সফলভাবে রেজিস্টার হয়েছে!`,
+            message: `Operator @${newUserUsername.trim()} created and registered in Firebase Authentication!`,
           });
         } else if (res.firebaseError) {
           setUserFeedback({
             type: 'warning',
-            message: `Operator @${newUserUsername.trim()} সিস্টেমে তৈরি হয়েছে, তবে Firebase Authentication-এ রেজিস্টার ব্যর্থ হয়েছে: ${res.firebaseError}`,
+            message: `Operator @${newUserUsername.trim()} created in system, but Firebase Auth failed: ${res.firebaseError}`,
             instructions: res.firebaseInstructions,
           });
         } else {
           setUserFeedback({
             type: 'success',
-            message: `Operator @${newUserUsername.trim()} তৈরি হয়েছে।`,
+            message: `Operator @${newUserUsername.trim()} created successfully.`,
           });
         }
       } else {
@@ -239,7 +239,7 @@ export const AdminSettingsModule: React.FC = () => {
     if (res.success) {
       const targetUser = users.find((u) => u.id === userId);
       const targetRole = roles.find((r) => r.id === newRoleId);
-      setRoleChangeFeedback(`অপারেটর @${targetUser?.username || userId}-এর জন্য "${targetRole?.name}" রোল সফলভাবে সেট করা হয়েছে।`);
+      setRoleChangeFeedback(`Role "${targetRole?.name}" successfully assigned to operator @${targetUser?.username || userId}.`);
       setTimeout(() => setRoleChangeFeedback(null), 4000);
     }
   };
@@ -302,7 +302,7 @@ export const AdminSettingsModule: React.FC = () => {
     });
     setNewRoleName('');
     setNewRoleDesc('');
-    setRoleChangeFeedback(`নতুন রোল "${newRoleName.trim()}" তৈরি করা হয়েছে।`);
+    setRoleChangeFeedback(`New role "${newRoleName.trim()}" created successfully.`);
     setTimeout(() => setRoleChangeFeedback(null), 3000);
   };
 
@@ -851,7 +851,7 @@ export const AdminSettingsModule: React.FC = () => {
                     </span>
                   </h4>
                   <p className="text-[11px] text-slate-500">
-                    Firebase Console-এর Authentication &gt; Users-এ ইউজার দেখতে হলে Email/Password provider সক্রিয় থাকতে হবে।
+                    Email/Password provider must be enabled in Firebase Console to view users under Authentication &gt; Users.
                   </p>
                 </div>
               </div>
@@ -879,9 +879,9 @@ export const AdminSettingsModule: React.FC = () => {
             </div>
 
             <div className="p-3 rounded-2xl bg-white/80 border border-amber-200/60 text-[11px] text-slate-600 leading-relaxed space-y-1">
-              <strong className="text-slate-800 block">কেন Firebase Authentication-এ ইউজার দেখা যায় না এবং সমাধান:</strong>
+              <strong className="text-slate-800 block">Why operators might not appear in Firebase Authentication:</strong>
               <p>
-                ১. <strong>Email/Password Provider বন্ধ থাকা:</strong> নতুন Firebase প্রজেক্টে Email/Password সাইন-ইন বন্ধ থাকে।{' '}
+                1. <strong>Email/Password Provider Disabled:</strong> New Firebase projects have Email/Password sign-in disabled by default.{' '}
                 <a
                   href="https://console.firebase.google.com/project/myapps-2026/authentication/providers"
                   target="_blank"
@@ -890,10 +890,10 @@ export const AdminSettingsModule: React.FC = () => {
                 >
                   Firebase Console &gt; Authentication &gt; Sign-in method
                 </a>{' '}
-                এ গিয়ে <strong>Email/Password</strong> &ldquo;Enable&rdquo; করে দিন।
+                and set <strong>Email/Password</strong> to &ldquo;Enable&rdquo;.
               </p>
               <p>
-                ২. <strong>পূর্ববর্তী ইউজারদের সিঙ্ক:</strong> সাইন-ইন এনাবল করার পর উপরের &ldquo;Sync All to Firebase Auth&rdquo; বাটনে ক্লিক করলেই পূর্বে তৈরিকৃত সকল অপারেটর Firebase Authentication &gt; Users-এ যুক্ত হয়ে যাবে।
+                2. <strong>Sync Existing Operators:</strong> After enabling the sign-in provider, click &ldquo;Sync All to Firebase Auth&rdquo; above to automatically link and register all team operators in Firebase Authentication &gt; Users.
               </p>
             </div>
           </div>
@@ -907,7 +907,7 @@ export const AdminSettingsModule: React.FC = () => {
                   <span>Team Operators & Role Assignment ({users.length})</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  অ্যাডমিন এখান থেকে যেকোনো ইউজারের রোল পরিবর্তন করতে পারেন এবং পারমিশন নির্ধারণ করতে পারেন।
+                  Admin can adjust operator roles and configure module permissions here.
                 </p>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1041,7 +1041,7 @@ export const AdminSettingsModule: React.FC = () => {
                       <button
                         onClick={() => handleOpenModuleConfig(u)}
                         className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 shadow-xs"
-                        title="Configure Module Access (যে যে আইটেম বা মডিউল ব্যবহার করতে পারবে)"
+                        title="Configure Module Access"
                       >
                         <Shield className="w-3.5 h-3.5 text-[#C49A45]" />
                         <span>Access ({getUserEffectiveModules(u, roles.find((r) => r.id === u.roleId)).length})</span>
@@ -1093,7 +1093,7 @@ export const AdminSettingsModule: React.FC = () => {
                   <span>Configure Access for @{configuringUser.username} ({configuringUser.name})</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  অ্যাডমিন এখান থেকে নির্ধারণ করুন এই ইউজার কোন কোন আইটেম বা মডিউল দেখতে এবং ব্যবহার করতে পারবে।
+                  Select which navigation modules and feature tabs this operator can view and access.
                 </p>
               </div>
               <button

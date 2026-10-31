@@ -5,7 +5,7 @@ import {
   PaymentMethod,
   SplitPayment,
 } from '../../types';
-import { formatCurrencyAmount } from '../../utils/currencyAndWords';
+import { formatCurrencyAmount, cleanItemName } from '../../utils/currencyAndWords';
 import {
   Search,
   Barcode,
@@ -333,7 +333,7 @@ export const POSModule: React.FC = () => {
                     ? 'bg-[#C49A45] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="রোল ও কলাম ভিউ (Table View)"
+                title="Table View (Rows & Columns)"
               >
                 <List className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">Table View</span>
@@ -346,7 +346,7 @@ export const POSModule: React.FC = () => {
                     ? 'bg-[#C49A45] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="কার্ড ভিউ (Grid View)"
+                title="Grid View (Cards)"
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">Grid View</span>
@@ -393,12 +393,12 @@ export const POSModule: React.FC = () => {
               <table className="w-full text-left text-xs border-collapse min-w-[580px] md:min-w-[660px]">
                 <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-20 shadow-xs select-none">
                   <tr>
-                    <th className="py-2.5 px-3 border-r border-slate-300 w-24 md:w-28 whitespace-nowrap">Code</th>
-                    <th className="py-2.5 px-3 border-r border-slate-300 min-w-[140px] md:min-w-[200px]">Item Name</th>
-                    <th className="py-2.5 px-3 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">Min Price Guard</th>
-                    <th className="py-2.5 px-3 border-r border-slate-300 text-center w-20 md:w-24 whitespace-nowrap">Stock</th>
-                    <th className="py-2.5 px-3 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">MRP</th>
-                    <th className="py-2.5 px-3 text-center w-16 md:w-20 whitespace-nowrap">Action</th>
+                    <th className="py-1.5 px-2.5 border-r border-slate-300 w-24 md:w-28 whitespace-nowrap">Code</th>
+                    <th className="py-1.5 px-2.5 border-r border-slate-300 min-w-[140px] md:min-w-[200px]">Item Name</th>
+                    <th className="py-1.5 px-2.5 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">Min Tk</th>
+                    <th className="py-1.5 px-2.5 border-r border-slate-300 text-center w-20 md:w-24 whitespace-nowrap">Stock</th>
+                    <th className="py-1.5 px-2.5 border-r border-slate-300 text-right w-24 md:w-28 whitespace-nowrap">MRP</th>
+                    <th className="py-1.5 px-2 text-center w-16 md:w-20 whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -421,7 +421,7 @@ export const POSModule: React.FC = () => {
                         }`}
                       >
                         {/* Code Column with active selection indicator arrow ▸ */}
-                        <td className="py-2 px-3 border-r border-slate-300/60 font-mono font-bold whitespace-nowrap">
+                        <td className="py-1.5 px-2.5 border-r border-slate-300/60 font-mono font-bold whitespace-nowrap">
                           <span className="flex items-center gap-1">
                             {isSelected ? (
                               <span className="text-amber-300 font-black">▸</span>
@@ -432,25 +432,20 @@ export const POSModule: React.FC = () => {
                           </span>
                         </td>
 
-                        {/* Item Name Column */}
-                        <td className="py-2 px-3 border-r border-slate-300/60 font-semibold truncate max-w-[200px] md:max-w-[320px]">
-                          <span>{prod.name}</span>
-                          {prod.brand && (
-                            <span className={`text-[10px] ml-1.5 ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
-                              ({prod.brand})
-                            </span>
-                          )}
+                        {/* Item Name Column - Pure Item Name only, no brand */}
+                        <td className="py-1.5 px-2.5 border-r border-slate-300/60 font-semibold truncate max-w-[200px] md:max-w-[320px]">
+                          <span>{cleanItemName(prod.name)}</span>
                         </td>
 
-                        {/* Min Price Guard Column replacing Category */}
-                        <td className="py-2 px-3 border-r border-slate-300/60 text-right font-mono whitespace-nowrap">
+                        {/* Min Tk Column */}
+                        <td className="py-1.5 px-2.5 border-r border-slate-300/60 text-right font-mono whitespace-nowrap">
                           <span className={isSelected ? 'text-blue-100 font-bold' : 'text-slate-700 font-bold'}>
                             {settings.currencySymbol}{Number(prod.minSellingPrice).toFixed(3)}
                           </span>
                         </td>
 
                         {/* Stock Column */}
-                        <td className="py-2 px-3 border-r border-slate-300/60 text-center font-mono whitespace-nowrap">
+                        <td className="py-1.5 px-2.5 border-r border-slate-300/60 text-center font-mono whitespace-nowrap">
                           <span
                             className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-bold ${
                               isSelected
@@ -465,20 +460,20 @@ export const POSModule: React.FC = () => {
                         </td>
 
                         {/* MRP Column */}
-                        <td className="py-2 px-3 border-r border-slate-300/60 text-right font-mono font-extrabold text-sm whitespace-nowrap">
+                        <td className="py-1.5 px-2.5 border-r border-slate-300/60 text-right font-mono font-extrabold text-sm whitespace-nowrap">
                           {settings.currencySymbol}
                           {Number(prod.regularPrice).toFixed(3)}
                         </td>
 
                         {/* Action Column */}
-                        <td className="py-1.5 px-2 text-center whitespace-nowrap">
+                        <td className="py-1 px-2 text-center whitespace-nowrap">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               addToCart(prod, 1);
                             }}
-                            className={`px-2 py-1 text-[11px] font-bold rounded-md shadow-2xs transition-transform active:scale-95 cursor-pointer ${
+                            className={`px-2 py-0.5 text-[11px] font-bold rounded-md shadow-2xs transition-transform active:scale-95 cursor-pointer ${
                               isSelected
                                 ? 'bg-white text-[#2563eb] hover:bg-blue-50'
                                 : 'bg-[#C49A45] text-white hover:bg-[#a88235]'
@@ -577,14 +572,14 @@ export const POSModule: React.FC = () => {
                       <span className="font-mono font-bold text-[#856324] group-hover:text-white bg-amber-50 group-hover:bg-white/20 px-2 py-0.5 rounded-md transition-colors truncate max-w-[120px]">
                         {prod.sku}
                       </span>
-                      <span className="font-semibold text-slate-500 group-hover:text-white/90 transition-colors text-right truncate text-[11px]">
-                        {prod.brand || 'General'}
+                      <span className="text-[10px] text-slate-400 group-hover:text-white/70 font-mono">
+                        {prod.unit}
                       </span>
                     </div>
 
                     {/* Product Name */}
                     <h4 className="text-sm font-bold text-slate-900 group-hover:text-white transition-colors line-clamp-2 leading-snug mb-0.5">
-                      {prod.name}
+                      {cleanItemName(prod.name)}
                     </h4>
 
                     {/* Category */}
@@ -815,8 +810,8 @@ export const POSModule: React.FC = () => {
           )}
         </div>
 
-        {/* Cart Items Table View matching Image 12 */}
-        <div className="flex-1 overflow-y-auto bg-white">
+        {/* Cart Items Table View - Compact, no horizontal scrollbar */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
           {cart.length === 0 ? (
             <div className="py-16 text-center text-slate-400 space-y-2">
               <ShoppingCart className="w-10 h-10 mx-auto text-slate-300" />
@@ -824,81 +819,85 @@ export const POSModule: React.FC = () => {
               <p className="text-xs text-slate-500">Search or click products to add to cart</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-10 select-none">
-                  <tr>
-                    <th className="py-2 px-2.5 border-r border-slate-300">Item / SKU</th>
-                    <th className="py-2 px-2.5 border-r border-slate-300 text-center w-28">Qty</th>
-                    <th className="py-2 px-2.5 border-r border-slate-300 text-right w-24">Price</th>
-                    <th className="py-2 px-2.5 border-r border-slate-300 text-right w-24">Total</th>
-                    <th className="py-2 px-2 text-center w-12">🗑️</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {cart.map((item) => {
-                    const violatesMin = item.unitPrice < item.product.minSellingPrice;
-                    return (
-                      <tr key={item.product.id} className={violatesMin ? 'bg-rose-50/70' : 'bg-white hover:bg-amber-50/40'}>
-                        <td className="py-2 px-2.5 border-r border-slate-200">
-                          <p className="font-bold text-slate-900 truncate max-w-[130px] sm:max-w-[170px]">{item.product.name}</p>
-                          <span className="font-mono text-[10px] text-slate-500">{item.product.sku} &middot; {item.unit}</span>
-                          {violatesMin && (
-                            <span className="block text-[9px] text-rose-700 font-bold">Min Guard: {settings.currencySymbol}{item.product.minSellingPrice}</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-2.5 border-r border-slate-200 text-center">
-                          <div className="flex items-center justify-center gap-1 bg-[#FEFAF3] rounded-lg p-0.5 border border-slate-300">
-                            <button
-                              onClick={() => updateCartItemQty(item.product.id, Math.max(0, item.quantity - 1))}
-                              className="w-5 h-5 flex items-center justify-center text-slate-700 hover:bg-slate-200 rounded font-bold cursor-pointer"
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              value={item.quantity}
-                              onChange={(e) => updateCartItemQty(item.product.id, parseFloat(e.target.value) || 0)}
-                              className="w-10 text-center font-mono font-bold text-xs bg-transparent text-slate-900 focus:outline-none"
-                            />
-                            <button
-                              onClick={() => updateCartItemQty(item.product.id, item.quantity + 1)}
-                              className="w-5 h-5 flex items-center justify-center text-slate-700 hover:bg-slate-200 rounded font-bold cursor-pointer"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-2 px-2.5 border-r border-slate-200 text-right font-mono">
-                          <input
-                            type="number"
-                            value={item.unitPrice}
-                            onChange={(e) => updateCartItemPrice(item.product.id, parseFloat(e.target.value) || 0)}
-                            className={`w-20 px-1.5 py-1 text-xs font-mono font-bold text-right rounded border focus:outline-none ${
-                              violatesMin ? 'bg-rose-100 text-rose-900 border-rose-400' : 'bg-[#FEFAF3] text-slate-900 border-slate-300'
-                            }`}
-                          />
-                        </td>
-                        <td className="py-2 px-2.5 border-r border-slate-200 text-right font-mono font-extrabold text-slate-900 whitespace-nowrap">
-                          {settings.currencySymbol}{item.total.toLocaleString()}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          <button
-                            onClick={() => removeFromCart(item.product.id)}
-                            className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                            title="Remove item"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <table className="w-full table-fixed text-left text-xs border-collapse">
+              <thead className="bg-[#ECEAE4] text-slate-700 font-bold border-b border-slate-300 sticky top-0 z-10 select-none text-[11px]">
+                <tr>
+                  <th className="py-1.5 px-2 border-r border-slate-300 text-left">Item</th>
+                  <th className="py-1.5 px-1 border-r border-slate-300 text-center w-12 sm:w-14">Qty</th>
+                  <th className="py-1.5 px-1 border-r border-slate-300 text-right w-14 sm:w-16">Price</th>
+                  <th className="py-1.5 px-1.5 border-r border-slate-300 text-right w-16 sm:w-18">Total</th>
+                  <th className="py-1.5 px-1 text-center w-7 sm:w-8">🗑️</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {cart.map((item) => {
+                  const violatesMin = item.unitPrice < item.product.minSellingPrice;
+                  const displayName = cleanItemName(item.product.name);
+                  return (
+                    <tr key={item.product.id} className={violatesMin ? 'bg-rose-50/70' : 'bg-white hover:bg-amber-50/40'}>
+                      {/* Pure Item Name */}
+                      <td className="py-1.5 px-2 border-r border-slate-200 min-w-0">
+                        <p className="font-bold text-slate-900 text-xs truncate leading-tight" title={displayName}>
+                          {displayName}
+                        </p>
+                        <div className="flex items-center gap-1 font-mono text-[10px] text-slate-400 mt-0.5 truncate">
+                          <span>{item.product.sku}</span>
+                          <span>&middot;</span>
+                          <span>{item.unit}</span>
+                        </div>
+                        {violatesMin && (
+                          <span className="block text-[9px] text-rose-700 font-bold leading-tight mt-0.5">
+                            Min Tk: {settings.currencySymbol}{item.product.minSellingPrice}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Compact Qty */}
+                      <td className="py-1.5 px-1 border-r border-slate-200 text-center">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={item.quantity}
+                          onChange={(e) => updateCartItemQty(item.product.id, parseFloat(e.target.value) || 0)}
+                          className="w-full max-w-[46px] mx-auto px-1 py-1 text-xs font-mono font-bold text-center rounded border border-slate-300 bg-[#FEFAF3] text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45]"
+                        />
+                      </td>
+
+                      {/* Compact Price */}
+                      <td className="py-1.5 px-1 border-r border-slate-200 text-right font-mono">
+                        <input
+                          type="number"
+                          value={item.unitPrice}
+                          onChange={(e) => updateCartItemPrice(item.product.id, parseFloat(e.target.value) || 0)}
+                          className={`w-full max-w-[58px] px-1 py-1 text-xs font-mono font-bold text-right rounded border focus:outline-none ${
+                            violatesMin
+                              ? 'bg-rose-100 text-rose-900 border-rose-400'
+                              : 'bg-[#FEFAF3] text-slate-900 border-slate-300 focus:bg-white focus:border-[#C49A45]'
+                          }`}
+                        />
+                      </td>
+
+                      {/* Total */}
+                      <td className="py-1.5 px-1.5 border-r border-slate-200 text-right font-mono font-extrabold text-xs text-slate-900 tabular-nums truncate">
+                        {settings.currencySymbol}{item.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
+                      </td>
+
+                      {/* Trash */}
+                      <td className="py-1.5 px-1 text-center">
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors cursor-pointer inline-flex items-center justify-center"
+                          title="Remove item"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
 

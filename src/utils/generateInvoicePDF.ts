@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Invoice, CompanySettings } from '../types';
-import { formatCurrencyAmount, numberToWords } from './currencyAndWords';
+import { formatCurrencyAmount, numberToWords, cleanItemName } from './currencyAndWords';
 
 export interface PDFDownloadResult {
   success: boolean;
@@ -125,7 +125,7 @@ export function downloadInvoicePDF(
       y += 4;
 
       const tableRows = invoice.items.map((it) => [
-        `${it.productName}\n${it.quantity} ${it.unit} x ${it.unitPrice.toLocaleString()}`,
+        `${cleanItemName(it.productName)}\n${it.quantity} ${it.unit} x ${it.unitPrice.toLocaleString()}`,
         `${it.total.toLocaleString()}`,
       ]);
 
@@ -291,7 +291,7 @@ export function downloadInvoicePDF(
 
       const tableData = invoice.items.map((it, idx) => [
         String(idx + 1),
-        it.productName,
+        cleanItemName(it.productName),
         it.sku,
         `${it.quantity} ${it.unit}`,
         `${it.unitPrice.toLocaleString()}`,
@@ -425,7 +425,7 @@ export function generateInvoiceHTML(
     <tr>
       ${!isThermal ? `<td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${idx + 1}</td>` : ''}
       <td style="border: 1px solid #cbd5e1; padding: 6px;">
-        <strong>${it.productName}</strong>
+        <strong>${cleanItemName(it.productName)}</strong>
         ${!isThermal ? `<div style="font-size: 11px; color: #64748b;">SKU: ${it.sku}</div>` : ''}
       </td>
       <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: right;">${it.quantity} ${it.unit}</td>
@@ -696,6 +696,9 @@ export interface DailyReportPrintParams {
   dayNetProfit: number;
   openingCashBalance: number;
   dayTotalPaidCash: number;
+  dayCashRevenue?: number;
+  dayBankTransferRevenue?: number;
+  dayMobileRevenue?: number;
   dayDuesCollectedCash: number;
   dayCashExpenses: number;
   dayCashRefunds: number;
@@ -789,7 +792,12 @@ export function printDailyReportSafely(data: DailyReportPrintParams) {
     <div class="kpi-card">
       <div style="font-size: 10px; color: #166534; font-weight: bold; text-transform: uppercase;">Total Day Revenue</div>
       <div style="font-size: 18px; font-weight: 800; color: #16a34a; font-family: monospace; white-space: nowrap;">${data.settings.currencySymbol} ${data.dayNetIncome.toLocaleString()}</div>
-      <div style="font-size: 10px; color: #64748b;">Gross: ${data.settings.currencySymbol}${data.dayGrossSales.toLocaleString()} | Returns: -${data.settings.currencySymbol}${data.dayReturnsTotal.toLocaleString()}</div>
+      <div style="font-size: 10px; color: #64748b; margin-top: 2px;">Gross: ${data.settings.currencySymbol}${data.dayGrossSales.toLocaleString()} | Returns: -${data.settings.currencySymbol}${data.dayReturnsTotal.toLocaleString()}</div>
+      <div style="font-size: 9.5px; color: #047857; margin-top: 4px; border-top: 1px solid #cbd5e1; padding-top: 3px;">
+        Cash: <strong>${data.settings.currencySymbol} ${(data.dayCashRevenue ?? data.dayTotalPaidCash).toLocaleString()}</strong> &middot; 
+        Bank Transfer: <strong>${data.settings.currencySymbol} ${(data.dayBankTransferRevenue ?? 0).toLocaleString()}</strong>
+        ${(data.dayMobileRevenue && data.dayMobileRevenue > 0) ? ` &middot; Mobile: <strong>${data.settings.currencySymbol} ${data.dayMobileRevenue.toLocaleString()}</strong>` : ''}
+      </div>
     </div>
     <div class="kpi-card">
       <div style="font-size: 10px; color: #991b1b; font-weight: bold; text-transform: uppercase;">Total Day Expenses</div>

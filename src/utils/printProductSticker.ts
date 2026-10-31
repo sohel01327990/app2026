@@ -1,5 +1,5 @@
 import { Product, CompanySettings } from '../types';
-import { formatCurrencyAmount } from './currencyAndWords';
+import { formatCurrencyAmount, cleanItemName } from './currencyAndWords';
 
 export function generateStickerSheetHTML(
   product: Product,
@@ -8,13 +8,14 @@ export function generateStickerSheetHTML(
 ): string {
   const priceText = `${settings.currencySymbol}${formatCurrencyAmount(product.regularPrice)}${product.unit ? ` / ${product.unit}` : ''}`;
   const safeCopies = Math.max(1, Math.min(copies, 500));
+  const displayName = cleanItemName(product.name);
 
   let stickerItemsHTML = '';
   for (let i = 0; i < safeCopies; i++) {
     stickerItemsHTML += `
       <div class="sticker-card">
         <div class="store-name">${settings.businessName || 'STORE LABEL'}</div>
-        <div class="product-name">${product.name}</div>
+        <div class="product-name">${displayName}</div>
         <div class="meta-row">
           <span>SKU: ${product.sku}</span>
           ${product.barcode ? `<span>BC: ${product.barcode}</span>` : ''}

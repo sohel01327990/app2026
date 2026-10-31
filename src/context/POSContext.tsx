@@ -710,8 +710,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       firebaseError: authErrorDetail,
       firebaseInstructions: authInstructions,
       message: firebaseRegistered
-        ? `Operator @${cleanUsername} সফলভাবে তৈরি হয়েছে এবং Firebase Authentication-এ রেজিস্টার হয়েছে!`
-        : `Operator @${cleanUsername} সিস্টেমে যুক্ত হয়েছে। তবে Firebase Auth সতর্কতা: ${authErrorDetail}`,
+        ? `Operator @${cleanUsername} was successfully created and registered in Firebase Authentication!`
+        : `Operator @${cleanUsername} was added to system. (Firebase Auth note: ${authErrorDetail})`,
       user: newUser,
     };
   };
@@ -743,12 +743,12 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return {
         success: true,
-        message: `@${targetUser.username} সফলভাবে Firebase Authentication-এ রেজিস্টার হয়েছে! (UID: ${res.uid})`,
+        message: `@${targetUser.username} successfully registered in Firebase Authentication! (UID: ${res.uid})`,
       };
     } else if (res.code === 'auth/email-already-in-use') {
       return {
         success: true,
-        message: `@${targetUser.username} ইতিপূর্বে Firebase Authentication-এ রেজিস্টার করা রয়েছে।`,
+        message: `@${targetUser.username} is already registered in Firebase Authentication.`,
       };
     } else {
       return {
@@ -776,7 +776,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return {
       ...summary,
-      message: `মোট ${summary.total} ইউজারের মধ্যে ${summary.succeeded} টি সফলভাবে রেজিস্টার হয়েছে, ${summary.alreadyRegistered} টি পূর্বে রেজিস্টার ছিল, ${summary.failed} টি ব্যর্থ হয়েছে।`,
+      message: `Out of ${summary.total} operators: ${summary.succeeded} registered, ${summary.alreadyRegistered} already existed, ${summary.failed} failed.`,
       instructions: firstInstructions,
     };
   };
@@ -1192,13 +1192,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         success: true,
         message:
           authRes.success || authRes.code === 'auth/email-already-in-use'
-            ? 'Admin ইউজার Firebase Firestore ডেটাবেস এবং Authentication-এ সফলভাবে তৈরি করা হয়েছে!'
-            : `Admin ইউজার Firestore ডেটাবেসে সফলভাবে সেভ হয়েছে (Auth: ${authRes.error || 'ok'})`,
+            ? 'Admin user was successfully created in Firebase Firestore and Authentication!'
+            : `Admin user saved to Firestore database (Auth: ${authRes.error || 'ok'})`,
       };
     } catch (e: any) {
       return {
         success: false,
-        message: e?.message || 'Admin ইউজার তৈরি করতে ত্রুটি হয়েছে।',
+        message: e?.message || 'Error occurred while creating Admin user.',
       };
     }
   };

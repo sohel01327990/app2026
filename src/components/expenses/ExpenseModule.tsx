@@ -315,7 +315,7 @@ export const ExpenseModule: React.FC = () => {
         {/* 1. Monthly Revenue / Income */}
         <div className="p-4 rounded-3xl bg-white border border-[#EADBCE] shadow-xs space-y-1 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-800">Monthly Revenue (আয়)</span>
+            <span className="text-xs font-bold text-emerald-800">Monthly Revenue</span>
             <div className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <ArrowUpRight className="w-4 h-4" />
             </div>
@@ -331,7 +331,7 @@ export const ExpenseModule: React.FC = () => {
         {/* 2. Monthly Vendor Payments */}
         <div className="p-4 rounded-3xl bg-white border border-[#EADBCE] shadow-xs space-y-1 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-800">Vendor Payments (সরবরাহকারী)</span>
+            <span className="text-xs font-bold text-amber-800">Vendor Payments</span>
             <div className="w-7 h-7 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <Building2 className="w-4 h-4" />
             </div>
@@ -347,7 +347,7 @@ export const ExpenseModule: React.FC = () => {
         {/* 3. Operating Expenses */}
         <div className="p-4 rounded-3xl bg-white border border-[#EADBCE] shadow-xs space-y-1 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-rose-800">Operating Expenses (পরিচালন ব্যয়)</span>
+            <span className="text-xs font-bold text-rose-800">Operating Expenses</span>
             <div className="w-7 h-7 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
               <TrendingDown className="w-4 h-4" />
             </div>
@@ -363,7 +363,7 @@ export const ExpenseModule: React.FC = () => {
         {/* 4. Net Cash Position */}
         <div className="p-4 rounded-3xl bg-white border border-[#EADBCE] shadow-xs space-y-1 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800">Net Cash Position (অবশিষ্ট তহবিল)</span>
+            <span className="text-xs font-bold text-slate-800">Net Cash Position</span>
             <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${monthlyMetrics.netCashFlow >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
               <Wallet className="w-4 h-4" />
             </div>

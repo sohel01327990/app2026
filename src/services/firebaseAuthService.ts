@@ -23,43 +23,43 @@ export function getFirebaseAuthErrorMessage(code: string, projectId: string = 'm
   switch (code) {
     case 'auth/operation-not-allowed':
       return {
-        error: "Firebase Authentication-এ 'Email/Password' Provider এনাবল (সক্রিয়) করা নেই।",
-        instructions: `Firebase Console-এ যান: https://console.firebase.google.com/project/${projectId}/authentication/providers -> 'Email/Password' নির্বাচন করুন -> 'Enable' অন করে 'Save' বাটনে ক্লিক করুন। তারপর পুনরায় চেষ্টা করুন।`,
+        error: "Firebase Authentication 'Email/Password' provider is not enabled.",
+        instructions: `Go to Firebase Console: https://console.firebase.google.com/project/${projectId}/authentication/providers -> Select 'Email/Password' -> Enable it and click 'Save'. Then retry.`,
       };
     case 'auth/email-already-in-use':
       return {
-        error: 'এই ইমেইলটি ইতিমধ্যে Firebase Authentication-এ রেজিস্টার করা আছে।',
-        instructions: 'ইউজারটি পূর্বে Firebase Auth-এ যুক্ত হয়েছে। ব্যবহারকারী এই ইমেইল ও পাসওয়ার্ড দিয়ে সরাসরি লগইন করতে পারবেন।',
+        error: 'This email is already registered in Firebase Authentication.',
+        instructions: 'The user account already exists in Firebase Auth. The user can log in directly using this email and password.',
       };
     case 'auth/weak-password':
       return {
-        error: 'পাসওয়ার্ডটি খুব দুর্বল (কমপক্ষে ৬ বা ৮ অক্ষরের হতে হবে)।',
-        instructions: 'পাসওয়ার্ডে অন্তত একটি অক্ষর ও সংখ্যা সহ কমপক্ষে ৮ অক্ষরের পাসওয়ার্ড ব্যবহার করুন।',
+        error: 'Password is too weak (must be at least 6 or 8 characters).',
+        instructions: 'Use a stronger password with at least 8 alphanumeric characters.',
       };
     case 'auth/invalid-email':
       return {
-        error: 'ইমেইল অ্যাড্রেস সঠিক নয়।',
-        instructions: 'একটি বৈধ ইমেইল (যেমন: username@domain.com) প্রদান করুন।',
+        error: 'Invalid email address format.',
+        instructions: 'Provide a valid email address (e.g., username@domain.com).',
       };
     case 'auth/configuration-not-found':
       return {
-        error: 'Firebase Authentication প্রজেক্টে শুরু (Get Started) করা হয়নি।',
-        instructions: `Firebase Console-এ যান: https://console.firebase.google.com/project/${projectId}/authentication -> 'Get Started' এ ক্লিক করুন।`,
+        error: 'Firebase Authentication has not been initialized (Get Started) in this project.',
+        instructions: `Go to Firebase Console: https://console.firebase.google.com/project/${projectId}/authentication -> Click 'Get Started'.`,
       };
     case 'auth/network-request-failed':
       return {
-        error: 'ইন্টারনেট বা ফায়ারবেস সার্ভার সংযোগ ব্যর্থ হয়েছে।',
-        instructions: 'আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন অথবা ফায়ারবেস স্ট্যাটাস চেক করুন।',
+        error: 'Network connection to Firebase server failed.',
+        instructions: 'Check your internet connection or verify Firebase service status.',
       };
     case 'auth/project-not-found':
       return {
-        error: 'Firebase প্রজেক্ট পাওয়া যায়নি।',
-        instructions: 'Firebase কনফিগারেশন এবং Project ID সঠিক কিনা যাচাই করুন।',
+        error: 'Firebase project was not found.',
+        instructions: 'Verify Firebase configuration and Project ID.',
       };
     default:
       return {
         error: `Firebase Auth Error [${code || 'Unknown'}]`,
-        instructions: 'Firebase Console-এ Authentication > Sign-in method সঠিকভাবে কনফিগার করা হয়েছে কিনা দেখুন।',
+        instructions: 'Check Firebase Console > Authentication > Sign-in method configuration.',
       };
   }
 }
@@ -77,8 +77,8 @@ export async function registerUserInFirebaseAuth(
     return {
       success: false,
       code: 'disconnected',
-      error: 'Firebase Cloud সংযোগ বিচ্ছিন্ন রয়েছে (Offline Mode)।',
-      instructions: 'Backup & Cloud Sync মডিউল থেকে Firebase পুনরায় সংযুক্ত করুন।',
+      error: 'Firebase Cloud connection is disconnected (Offline Mode).',
+      instructions: 'Reconnect to Firebase from the Backup & Cloud Sync module.',
     };
   }
 

@@ -96,14 +96,34 @@ export const DailyReportModule: React.FC = () => {
     return dayGrossProfit - dayTotalExpense;
   }, [dayGrossProfit, dayTotalExpense]);
 
-  const dayTotalPaidCash = useMemo(() => {
+  const dayCashRevenue = useMemo(() => {
     return dayInvoices.reduce((sum, inv) => {
       const cashPayments = inv.payments
         ?.filter((p) => p.method === 'cash')
-        .reduce((s, p) => s + p.amount, 0) || inv.totalPaid;
+        .reduce((s, p) => s + p.amount, 0) ?? (inv.payments && inv.payments.length > 0 ? 0 : inv.totalPaid);
       return sum + cashPayments;
     }, 0);
   }, [dayInvoices]);
+
+  const dayBankTransferRevenue = useMemo(() => {
+    return dayInvoices.reduce((sum, inv) => {
+      const bankPayments = inv.payments
+        ?.filter((p) => p.method === 'bank_transfer')
+        .reduce((s, p) => s + p.amount, 0) || 0;
+      return sum + bankPayments;
+    }, 0);
+  }, [dayInvoices]);
+
+  const dayMobileRevenue = useMemo(() => {
+    return dayInvoices.reduce((sum, inv) => {
+      const mobPayments = inv.payments
+        ?.filter((p) => p.method === 'bkash' || p.method === 'nagad')
+        .reduce((s, p) => s + p.amount, 0) || 0;
+      return sum + mobPayments;
+    }, 0);
+  }, [dayInvoices]);
+
+  const dayTotalPaidCash = dayCashRevenue;
 
   const dayTotalDue = useMemo(() => {
     return dayInvoices.reduce((sum, inv) => sum + inv.dueAmount, 0);
@@ -150,7 +170,7 @@ export const DailyReportModule: React.FC = () => {
       const dWd = (cashWithdrawals || []).filter(w => w.date === d);
 
       const paidCash = dInv.reduce((sum, inv) => {
-        const cp = inv.payments?.filter(p => p.method === 'cash').reduce((s, p) => s + p.amount, 0) || inv.totalPaid;
+        const cp = inv.payments?.filter(p => p.method === 'cash').reduce((s, p) => s + p.amount, 0) ?? (inv.payments && inv.payments.length > 0 ? 0 : inv.totalPaid);
         return sum + cp;
       }, 0);
       const duesCollected = dTx.filter(tx => tx.type === 'due_payment').reduce((sum, tx) => sum + tx.amount, 0);
@@ -241,6 +261,9 @@ export const DailyReportModule: React.FC = () => {
       dayNetProfit,
       openingCashBalance,
       dayTotalPaidCash,
+      dayCashRevenue,
+      dayBankTransferRevenue,
+      dayMobileRevenue,
       dayDuesCollectedCash,
       dayCashExpenses,
       dayCashRefunds,
@@ -330,12 +353,29 @@ export const DailyReportModule: React.FC = () => {
             {dayNetIncome.toLocaleString()}
           </div>
 
-          <div className="text-[11px] text-slate-500 flex flex-wrap justify-between pt-1 border-t border-slate-100">
-            <span>Gross Sales: {settings.currencySymbol}{dayGrossSales.toLocaleString()}</span>
-            {dayReturnsTotal > 0 && (
-              <span className="text-rose-600 font-medium">
-                Returns Deducted: -{settings.currencySymbol}{dayReturnsTotal.toLocaleString()}
-              </span>
+          <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-100 space-y-1.5">
+            <div className="flex justify-between">
+              <span>Gross Sales: {settings.currencySymbol}{dayGrossSales.toLocaleString()}</span>
+              {dayReturnsTotal > 0 && (
+                <span className="text-rose-600 font-medium">
+                  Returns: -{settings.currencySymbol}{dayReturnsTotal.toLocaleString()}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+              <div className="p-1.5 rounded-lg bg-emerald-50/80 border border-emerald-200">
+                <span className="text-[10px] text-emerald-800 font-semibold block">Cash Revenue:</span>
+                <span className="font-mono font-bold text-emerald-700 text-xs">{settings.currencySymbol}{dayCashRevenue.toLocaleString()}</span>
+              </div>
+              <div className="p-1.5 rounded-lg bg-blue-50/80 border border-blue-200">
+                <span className="text-[10px] text-blue-800 font-semibold block">Bank Transfer:</span>
+                <span className="font-mono font-bold text-blue-700 text-xs">{settings.currencySymbol}{dayBankTransferRevenue.toLocaleString()}</span>
+              </div>
+            </div>
+            {dayMobileRevenue > 0 && (
+              <div className="text-[10px] text-purple-700 font-medium">
+                Mobile Banking (bKash/Nagad): {settings.currencySymbol}{dayMobileRevenue.toLocaleString()}
+              </div>
             )}
           </div>
         </div>
@@ -468,7 +508,7 @@ export const DailyReportModule: React.FC = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-100">
               <PiggyBank className="w-4 h-4 text-emerald-200" />
-              <span>Remaining Balance in Hand / Safe (অবশিষ্ট ব্যালেন্স)</span>
+              <span>Remaining Balance in Hand / Safe</span>
             </div>
             <div className="text-2xl sm:text-3xl font-black font-mono text-white tabular-nums tracking-tight">
               {settings.currencySymbol} {dayRemainingCashBalance.toLocaleString()}
@@ -670,7 +710,7 @@ export const DailyReportModule: React.FC = () => {
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Wallet className="w-5 h-5 text-rose-600" />
-              <span>Record Daily Cash Withdrawal (ক্যাশ উত্তোলন)</span>
+              <span>Record Daily Cash Withdrawal</span>
             </h3>
             <button
               type="button"

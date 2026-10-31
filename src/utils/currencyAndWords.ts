@@ -8,6 +8,11 @@ export function formatCurrencyAmount(amount: number): string {
   });
 }
 
+export function cleanItemName(name: string): string {
+  if (!name) return '';
+  return name.replace(/\s*\([^)]*\)\s*$/, '').trim() || name;
+}
+
 const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
 const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 

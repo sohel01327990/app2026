@@ -7,7 +7,7 @@ import {
   downloadInvoiceHTML,
   getEffectiveInvoiceTerms,
 } from '../../utils/generateInvoicePDF';
-import { numberToWords, formatCurrencyAmount } from '../../utils/currencyAndWords';
+import { numberToWords, formatCurrencyAmount, cleanItemName } from '../../utils/currencyAndWords';
 import {
   Printer,
   X,
@@ -214,7 +214,7 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({ invoice, o
                     <tr key={idx}>
                       <td className="py-2.5 px-3 text-slate-500">{idx + 1}</td>
                       <td className="py-2.5 px-3">
-                        <strong className="block text-slate-900">{it.productName}</strong>
+                        <strong className="block text-slate-900">{cleanItemName(it.productName)}</strong>
                         <span className="text-[10px] text-slate-400 font-mono">{it.sku}</span>
                       </td>
                       <td className="py-2.5 px-3 text-right font-medium whitespace-nowrap">{it.quantity} {it.unit}</td>
@@ -316,7 +316,7 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({ invoice, o
                 {invoice.items.map((it, idx) => (
                   <div key={idx} className="flex justify-between">
                     <div>
-                      <div>{it.productName}</div>
+                      <div>{cleanItemName(it.productName)}</div>
                       <div className="text-[9px] text-gray-600">{it.quantity} {it.unit} x {it.unitPrice}</div>
                     </div>
                     <span className="font-bold">{it.total}</span>

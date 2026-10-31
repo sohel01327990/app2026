@@ -268,7 +268,7 @@ export const AnalyticsModule: React.FC = () => {
               <span>Financial Analytics & Profit Intelligence</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              শুরুর তারিখ (Day-Month-Year) থেকে শেষ তারিখ (Day-Month-Year) পর্যন্ত আয়, ব্যয়, লাভ ও আর্থিক বিশ্লেষণের হিসাব
+              Comprehensive revenue, operational expenses, margin, and net profit analysis
             </p>
           </div>
 
@@ -432,7 +432,7 @@ export const AnalyticsModule: React.FC = () => {
               <span>Financial Performance Timeline ({formatDateDMY(rangeStart)} &mdash; {formatDateDMY(rangeEnd)})</span>
             </h3>
             <p className="text-xs text-slate-500">
-              নির্বাচিত সময়সীমার আয় (Revenue), ব্যয় (Expense) এবং নিট লাভের (Net Profit) তুলনামূলক চার্ট ({curr})
+              Comparative timeline overview of Revenue, Expenses, and Net Profit ({curr})
             </p>
           </div>
 
@@ -539,7 +539,7 @@ export const AnalyticsModule: React.FC = () => {
               <span>Periodic Financial Breakdown ({formatDateDMY(rangeStart)} to {formatDateDMY(rangeEnd)})</span>
             </h3>
             <p className="text-xs text-slate-500">
-              নির্বাচিত সময়কালের আয়, ব্যয়, গ্রস মার্জিন এবং নিট লাভের বিস্তারিত বিবরণী
+              Detailed financial performance breakdown of revenues, costs, margins, and net profit
             </p>
           </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePOS } from '../../context/POSContext';
 import { Product, MaterialUnit, StockAdjustment } from '../../types';
 import { printProductSticker, downloadStickerHTML } from '../../utils/printProductSticker';
+import { cleanItemName } from '../../utils/currencyAndWords';
 import {
   Boxes,
   Plus,
@@ -350,7 +351,7 @@ export const InventoryModule: React.FC = () => {
                 return (
                   <tr key={prod.id} className="hover:bg-[#FEFAF3] transition-colors">
                     <td className="py-3 px-4">
-                      <span className="font-bold text-slate-900 block text-xs">{prod.name}</span>
+                      <span className="font-bold text-slate-900 block text-xs">{cleanItemName(prod.name)}</span>
                       <span className="text-[10px] text-[#C49A45] font-mono font-bold">
                         {prod.sku} &middot; Barcode: {prod.barcode}
                       </span>
@@ -923,7 +924,7 @@ export const InventoryModule: React.FC = () => {
                 <div>
                   <label className="text-[9px] uppercase text-slate-400 font-bold block">Material Name:</label>
                   <strong className="text-sm font-extrabold text-slate-900 block leading-tight">
-                    {selectedStickerProduct.name}
+                    {cleanItemName(selectedStickerProduct.name)}
                   </strong>
                 </div>
 
@@ -1042,7 +1043,7 @@ export const InventoryModule: React.FC = () => {
                   {settings.businessName || 'STORE LABEL'}
                 </div>
                 <div className="text-xs font-black text-slate-900 leading-tight">
-                  {selectedStickerProduct.name}
+                  {cleanItemName(selectedStickerProduct.name)}
                 </div>
                 <div className="flex justify-between text-[8px] font-mono font-bold text-slate-800">
                   <span>SKU: {selectedStickerProduct.sku}</span>
