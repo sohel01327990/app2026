@@ -1892,11 +1892,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const subtotal = invoiceItems.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0);
     const itemDiscounts = invoiceItems.reduce((acc, i) => acc + i.discount, 0);
     const totalDiscount = itemDiscounts + discountAmount;
-    const netAmount = Math.max(0, subtotal - totalDiscount);
     const vatPct = settings.vatPercent ?? 5;
-    const vatTaxAmount = Math.round(netAmount * vatPct * 10) / 1000; // wait, netAmount * vatPct / 100
-    const actualVat = Math.round((netAmount * vatPct) / 100 * 1000) / 1000;
-    const grandTotal = Math.round((netAmount + actualVat) * 1000) / 1000;
+    const actualVat = Math.round(((subtotal * vatPct) / 100) * 1000) / 1000;
+    const grandTotal = Math.round(Math.max(0, subtotal + actualVat - totalDiscount) * 1000) / 1000;
 
     const totalPaid = payments
       .filter((p) => p.method !== 'customer_due')

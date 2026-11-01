@@ -139,10 +139,9 @@ export const POSModule: React.FC = () => {
   const rawSubtotal = cart.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
   const itemDiscounts = cart.reduce((acc, item) => acc + item.discount, 0);
   const totalDiscount = itemDiscounts + cartDiscount;
-  const netAmount = Math.max(0, rawSubtotal - totalDiscount);
   const vatPct = settings.vatPercent ?? 5;
-  const vatAmount = Math.round((netAmount * vatPct) / 100 * 1000) / 1000;
-  const grandTotal = Math.round((netAmount + vatAmount) * 1000) / 1000;
+  const vatAmount = Math.round(((rawSubtotal * vatPct) / 100) * 1000) / 1000;
+  const grandTotal = Math.round(Math.max(0, rawSubtotal + vatAmount - totalDiscount) * 1000) / 1000;
 
   const minPriceViolations = cart.filter((item) => item.unitPrice < item.product.minSellingPrice);
   const hasMinPriceViolation = minPriceViolations.length > 0;
