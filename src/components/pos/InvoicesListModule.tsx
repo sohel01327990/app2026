@@ -155,10 +155,10 @@ export const InvoicesListModule: React.FC = () => {
 
       {/* Invoices Table */}
       <div className="rounded-3xl bg-white border border-[#EADBCE] overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
           <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
+            <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200 sticky top-0 z-20 shadow-xs">
+              <tr>
                 <th className="py-3 px-4">Invoice # (Max 10 chars)</th>
                 <th className="py-3 px-4">Date & Cashier</th>
                 <th className="py-3 px-4">Customer</th>

@@ -371,7 +371,7 @@ export const InventoryModule: React.FC = () => {
 
       {/* Products Table with Edit and Delete Buttons (Requirement 4) */}
       <div className="rounded-2xl bg-white border border-[#EADBCE] overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-20 shadow-xs select-none">
               <tr>
@@ -495,9 +495,9 @@ export const InventoryModule: React.FC = () => {
             </p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300">
+            <thead className="bg-[#EBEBEB] text-slate-800 font-bold border-b border-slate-300 sticky top-0 z-20 shadow-xs">
               <tr>
                 <th className="py-2.5 px-3 border-r border-slate-300">Date & Time</th>
                 <th className="py-2.5 px-3 border-r border-slate-300">Material Name</th>
