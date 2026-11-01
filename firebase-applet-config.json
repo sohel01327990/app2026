@@ -1,12 +1,12 @@
 {
-  "projectId": "myapps-2026",
-  "appId": "1:444533027557:web:19a6c37460f401d4ee9a0c",
-  "apiKey": "AIzaSyCLxq9jkLY_DAhpOqf2hbt3zkuPlHBEMlA",
-  "authDomain": "myapps-2026.firebaseapp.com",
+  "projectId": "app2026-f6184",
+  "appId": "1:308061619877:web:5d3a2aecc87fc878e96f4c",
+  "apiKey": "AIzaSyBhiN-ZcnRYSgFv6uxi99BEyNBMzrM6RMU",
+  "authDomain": "app2026-f6184.firebaseapp.com",
   "firestoreDatabaseId": "(default)",
-  "storageBucket": "myapps-2026.firebasestorage.app",
-  "messagingSenderId": "444533027557",
-  "measurementId": "G-0GB2MK4ZSM",
+  "storageBucket": "app2026-f6184.firebasestorage.app",
+  "messagingSenderId": "308061619877",
+  "measurementId": "G-3GND3VH2R4",
   "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
