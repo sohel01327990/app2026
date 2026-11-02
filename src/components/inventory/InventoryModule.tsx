@@ -616,6 +616,7 @@ export const InventoryModule: React.FC = () => {
                     <option value="Kg">Kg</option>
                     <option value="Bundle">Bundle</option>
                     <option value="SqFt">SqFt</option>
+                    <option value="Metter">Metter</option>
                   </select>
                 </div>
                 <div>
