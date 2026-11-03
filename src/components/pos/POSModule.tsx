@@ -117,6 +117,7 @@ export const POSModule: React.FC = () => {
   const [showSaveDefaultModal, setShowSaveDefaultModal] = useState(false);
   const [defaultInvoiceNameInput, setDefaultInvoiceNameInput] = useState('');
   const [showDefaultInvoicesModal, setShowDefaultInvoicesModal] = useState(false);
+  const [defaultInvoiceSearchQuery, setDefaultInvoiceSearchQuery] = useState('');
   const [activeLoadedDraftId, setActiveLoadedDraftId] = useState<string | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
@@ -216,6 +217,22 @@ export const POSModule: React.FC = () => {
     setShowDefaultInvoicesModal(false);
     setActivePrintInvoice(draftInvoice);
   };
+
+  const filteredDefaultInvoices = useMemo(() => {
+    if (!defaultInvoiceSearchQuery.trim()) return defaultInvoices;
+    const q = defaultInvoiceSearchQuery.toLowerCase().trim();
+    return defaultInvoices.filter((draft) => {
+      const nameMatch = draft.customerInfo.name?.toLowerCase().includes(q);
+      const phoneMatch = draft.customerInfo.phone?.toLowerCase().includes(q);
+      const draftNameMatch = draft.name?.toLowerCase().includes(q);
+      const itemMatch = draft.items.some(
+        (it) =>
+          it.product.name.toLowerCase().includes(q) ||
+          it.product.sku.toLowerCase().includes(q)
+      );
+      return nameMatch || phoneMatch || draftNameMatch || itemMatch;
+    });
+  }, [defaultInvoices, defaultInvoiceSearchQuery]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -1520,9 +1537,9 @@ export const POSModule: React.FC = () => {
       {showDefaultInvoicesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="w-full max-w-2xl rounded-3xl bg-white border border-[#EADBCE] p-6 shadow-2xl text-slate-900 space-y-4 my-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-amber-50 rounded-xl border border-amber-200">
+                <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 shrink-0">
                   <FileText className="w-5 h-5 text-[#C49A45]" />
                 </div>
                 <div>
@@ -1537,13 +1554,40 @@ export const POSModule: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowDefaultInvoicesModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Search Bar matching user screenshot */}
+              <div className="flex items-center gap-2 flex-1 sm:max-w-xs sm:ml-auto">
+                <div className="relative w-full">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search by Name or Mobile..."
+                    value={defaultInvoiceSearchQuery}
+                    onChange={(e) => setDefaultInvoiceSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45] focus:ring-1 focus:ring-[#C49A45] font-medium"
+                  />
+                  {defaultInvoiceSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setDefaultInvoiceSearchQuery('')}
+                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDefaultInvoicesModal(false);
+                    setDefaultInvoiceSearchQuery('');
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {defaultInvoices.length === 0 ? (
@@ -1554,9 +1598,24 @@ export const POSModule: React.FC = () => {
                   To save a draft, add items to your POS Cart and click the <strong>Default</strong> button next to Checkout & Pay.
                 </p>
               </div>
+            ) : filteredDefaultInvoices.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 space-y-2">
+                <Search className="w-10 h-10 mx-auto text-slate-300" />
+                <p className="font-bold text-slate-700 text-sm">No Matching Invoices Found</p>
+                <p className="text-xs text-slate-500">
+                  No default invoices match "{defaultInvoiceSearchQuery}". Try another customer name or mobile number.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDefaultInvoiceSearchQuery('')}
+                  className="mt-2 px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold cursor-pointer"
+                >
+                  Clear Search
+                </button>
+              </div>
             ) : (
               <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
-                {defaultInvoices.map((draft) => {
+                {filteredDefaultInvoices.map((draft) => {
                   const draftSubtotal = draft.items.reduce((s, it) => s + it.quantity * it.unitPrice, 0);
                   const draftVat = Math.round(((draftSubtotal * (settings.vatPercent ?? 5)) / 100) * 1000) / 1000;
                   const draftGrandTotal = Math.round(Math.max(0, draftSubtotal + draftVat - draft.discountAmount) * 1000) / 1000;
