@@ -4,6 +4,8 @@ import {
   Product,
   PaymentMethod,
   SplitPayment,
+  DefaultInvoiceDraft,
+  Invoice,
 } from '../../types';
 import { formatCurrencyAmount, cleanItemName } from '../../utils/currencyAndWords';
 import {
@@ -29,6 +31,10 @@ import {
   Phone,
   X,
   Check,
+  Bookmark,
+  FileText,
+  ArrowRight,
+  Printer,
 } from 'lucide-react';
 
 export const POSModule: React.FC = () => {
@@ -36,6 +42,7 @@ export const POSModule: React.FC = () => {
     products,
     categories,
     cart,
+    setCart,
     addToCart,
     updateCartItemQty,
     updateCartItemPrice,
@@ -50,6 +57,9 @@ export const POSModule: React.FC = () => {
     currentRole,
     selectedCustomerIdForPOS,
     setSelectedCustomerIdForPOS,
+    defaultInvoices,
+    saveCartAsDefaultInvoice,
+    deleteDefaultInvoice,
   } = usePOS();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,6 +112,110 @@ export const POSModule: React.FC = () => {
   const [payments, setPayments] = useState<SplitPayment[]>([
     { method: 'cash', amount: 0, reference: '' },
   ]);
+
+  // Default Invoices local draft state
+  const [showSaveDefaultModal, setShowSaveDefaultModal] = useState(false);
+  const [defaultInvoiceNameInput, setDefaultInvoiceNameInput] = useState('');
+  const [showDefaultInvoicesModal, setShowDefaultInvoicesModal] = useState(false);
+  const [activeLoadedDraftId, setActiveLoadedDraftId] = useState<string | null>(null);
+  const [feedbackToast, setFeedbackToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  useEffect(() => {
+    if (feedbackToast) {
+      const timer = setTimeout(() => setFeedbackToast(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackToast]);
+
+  const handleSaveDefaultInvoiceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!defaultInvoiceNameInput.trim() || cart.length === 0) return;
+    const custInfo = {
+      name: selectedCustomer ? selectedCustomer.name : walkinName.trim() || 'Walk-in Cash Customer',
+      phone: selectedCustomer ? selectedCustomer.phone : walkinPhone.trim() || 'N/A',
+      customerId: selectedCustomer?.id,
+    };
+    saveCartAsDefaultInvoice(defaultInvoiceNameInput.trim(), custInfo, cartDiscount, discountReason);
+    setShowSaveDefaultModal(false);
+    setDefaultInvoiceNameInput('');
+    setFeedbackToast({
+      message: 'Draft saved in browser storage! (Not in Firebase until Checkout)',
+      type: 'info',
+    });
+  };
+
+  const handleLoadDefaultDraft = (draft: DefaultInvoiceDraft) => {
+    setCart(draft.items);
+    setCartDiscount(draft.discountAmount);
+    setDiscountInput(draft.discountAmount > 0 ? String(draft.discountAmount) : '');
+    setDiscountReason(draft.discountReason || '');
+    if (draft.customerInfo.customerId) {
+      setSelectedCustomerId(draft.customerInfo.customerId);
+      const found = customers.find((c) => c.id === draft.customerInfo.customerId);
+      if (found) setCustomerSearchText(found.name);
+    } else {
+      setSelectedCustomerId('');
+      setWalkinName(draft.customerInfo.name || '');
+      setWalkinPhone(draft.customerInfo.phone || '');
+      setCustomerSearchText('');
+    }
+    setActiveLoadedDraftId(draft.id);
+    setShowDefaultInvoicesModal(false);
+    setFeedbackToast({
+      message: `Loaded "${draft.name}" into POS cart. Click "Checkout & Pay" to sync to Firebase!`,
+      type: 'success',
+    });
+  };
+
+  const handlePrintDefaultDraft = (draft: DefaultInvoiceDraft) => {
+    const draftSubtotal = draft.items.reduce((s, it) => s + it.quantity * it.unitPrice, 0);
+    const draftVat = Math.round(((draftSubtotal * (settings.vatPercent ?? 5)) / 100) * 1000) / 1000;
+    const draftGrandTotal = Math.round(Math.max(0, draftSubtotal + draftVat - draft.discountAmount) * 1000) / 1000;
+
+    const draftInvoice: Invoice = {
+      id: `DEFAULT-${draft.id.slice(-6).toUpperCase()}`,
+      sequenceNumber: 0,
+      deviceId: settings.deviceId || 'POS-01',
+      customerName: draft.customerInfo.name || 'Walk-in Cash Customer',
+      customerPhone: draft.customerInfo.phone || 'N/A',
+      customerId: draft.customerInfo.customerId,
+      items: draft.items.map((it) => ({
+        productId: it.product.id,
+        productName: it.product.name,
+        sku: it.product.sku,
+        unit: it.unit,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        costPrice: it.product.costPrice,
+        minSellingPrice: it.product.minSellingPrice,
+        discount: it.discount,
+        total: it.total,
+      })),
+      subtotal: draftSubtotal,
+      discountAmount: draft.discountAmount,
+      discountReason: draft.discountReason || 'Default Invoice Draft',
+      vatTaxAmount: draftVat,
+      grandTotal: draftGrandTotal,
+      payments: [
+        {
+          method: 'cash',
+          amount: draftGrandTotal,
+          reference: 'Default Invoice Draft (Local Browser)',
+        },
+      ],
+      totalPaid: 0,
+      dueAmount: draftGrandTotal,
+      status: 'completed',
+      cashierId: currentUser.id,
+      cashierName: currentUser.name,
+      createdAt: draft.createdAt,
+      synced: false,
+      syncVersion: 1,
+    };
+
+    setShowDefaultInvoicesModal(false);
+    setActivePrintInvoice(draftInvoice);
+  };
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -255,6 +369,16 @@ export const POSModule: React.FC = () => {
     if (newInv) {
       setActivePrintInvoice(newInv);
     }
+
+    if (activeLoadedDraftId) {
+      deleteDefaultInvoice(activeLoadedDraftId);
+      setActiveLoadedDraftId(null);
+    }
+
+    setFeedbackToast({
+      message: 'Invoice created & successfully synced to Firebase Cloud!',
+      type: 'success',
+    });
 
     setShowCheckoutModal(false);
     setCartDiscount(0);
@@ -655,15 +779,32 @@ export const POSModule: React.FC = () => {
         {/* Customer Header (Ultra-Compact View) */}
         <div className="px-2.5 py-1.5 bg-white border-b border-[#EADBCE] space-y-1 shrink-0">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-800 flex items-center gap-1">
-              <Building className="w-2.5 h-2.5 text-[#C49A45]" />
-              <span>Customer</span>
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                <Building className="w-3.5 h-3.5 text-[#C49A45]" />
+                <span>Customer</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowDefaultInvoicesModal(true)}
+                className="text-[11px] text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 font-bold px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                title="View & load saved default invoice drafts (stored locally)"
+              >
+                <FileText className="w-3 h-3 text-[#C49A45]" />
+                <span>Default Invoice</span>
+                {defaultInvoices.length > 0 && (
+                  <span className="px-1.5 py-0.2 bg-[#C49A45] text-white rounded-full text-[9px] font-mono font-bold leading-tight">
+                    {defaultInvoices.length}
+                  </span>
+                )}
+              </button>
+            </div>
             <button
+              type="button"
               onClick={() => setShowNewCustModal(true)}
-              className="text-[10px] text-[#C49A45] hover:text-[#a88235] font-bold flex items-center gap-0.5 cursor-pointer"
+              className="text-[11px] text-[#C49A45] hover:text-[#a88235] font-bold flex items-center gap-0.5 cursor-pointer px-1 py-0.5"
             >
-              <UserPlus className="w-2.5 h-2.5" />
+              <UserPlus className="w-3 h-3" />
               <span>+ New</span>
             </button>
           </div>
@@ -966,13 +1107,30 @@ export const POSModule: React.FC = () => {
 
           <div className="flex items-center gap-2 pt-1">
             <button
+              type="button"
               onClick={handleClearCart}
               disabled={cart.length === 0}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors disabled:opacity-40 cursor-pointer"
+              className="px-3 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors disabled:opacity-40 cursor-pointer"
             >
               Clear
             </button>
             <button
+              type="button"
+              onClick={() => {
+                if (cart.length === 0) return;
+                const draftName = `Draft #${defaultInvoices.length + 1} - ${selectedCustomer ? selectedCustomer.name : walkinName || 'Walk-in'}`;
+                setDefaultInvoiceNameInput(draftName);
+                setShowSaveDefaultModal(true);
+              }}
+              disabled={cart.length === 0}
+              className="px-3.5 py-2.5 rounded-xl bg-amber-50 border border-[#C49A45] hover:bg-amber-100 text-[#856324] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-40 cursor-pointer shrink-0"
+              title="Save current cart as local Default Invoice (stored in browser, not in Firebase until checkout)"
+            >
+              <Bookmark className="w-3.5 h-3.5 text-[#C49A45]" />
+              <span>Default</span>
+            </button>
+            <button
+              type="button"
               onClick={openCheckout}
               disabled={cart.length === 0 || requiresManagerOverride}
               className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer ${
@@ -1263,6 +1421,267 @@ export const POSModule: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Save as Default Invoice Modal */}
+      {showSaveDefaultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white border border-[#EADBCE] p-6 shadow-2xl text-slate-900 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-amber-50 rounded-xl border border-amber-200">
+                  <Bookmark className="w-5 h-5 text-[#C49A45]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Save as Default Invoice</h3>
+                  <p className="text-[11px] text-slate-500">Local Browser Storage Draft (No Firebase)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaveDefaultModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
+              <p className="font-semibold flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-amber-700" />
+                Draft Stored in Browser Only
+              </p>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                This invoice draft will be saved safely in your browser storage. It will not touch Firebase until you load it and complete <strong>Checkout & Pay</strong>.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveDefaultInvoiceSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Draft Label / Name *</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. Standard Sanitary Set, Contractor A Draft..."
+                  value={defaultInvoiceNameInput}
+                  onChange={(e) => setDefaultInvoiceNameInput(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45]"
+                />
+              </div>
+
+              {/* Draft Summary Details */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-[11px]">
+                <div className="flex justify-between text-slate-600">
+                  <span>Customer:</span>
+                  <span className="font-semibold text-slate-900">
+                    {selectedCustomer ? selectedCustomer.name : walkinName || 'Walk-in Cash Customer'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Total Items:</span>
+                  <span className="font-bold font-mono text-slate-900">
+                    {cart.length} item(s) ({cart.reduce((s, i) => s + i.quantity, 0)} qty)
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Grand Total:</span>
+                  <span className="font-extrabold font-mono text-[#C49A45]">
+                    {settings.currencySymbol} {formatCurrencyAmount(grandTotal)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSaveDefaultModal(false)}
+                  className="flex-1 py-2 text-xs rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!defaultInvoiceNameInput.trim()}
+                  className="flex-1 py-2 text-xs rounded-xl bg-[#C49A45] hover:bg-[#b58c38] text-white font-bold shadow-md disabled:opacity-40 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span>Save Draft</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Default Invoices Drafts List Modal */}
+      {showDefaultInvoicesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-3xl bg-white border border-[#EADBCE] p-6 shadow-2xl text-slate-900 space-y-4 my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-50 rounded-xl border border-amber-200">
+                  <FileText className="w-5 h-5 text-[#C49A45]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span>Saved Default Invoices</span>
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded-full text-xs font-mono font-bold">
+                      {defaultInvoices.length}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Stored in local browser. Syncs to Firebase Cloud upon completing Checkout & Pay.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDefaultInvoicesModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {defaultInvoices.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 space-y-2">
+                <Bookmark className="w-10 h-10 mx-auto text-slate-300" />
+                <p className="font-bold text-slate-700 text-sm">No Default Invoices Saved Yet</p>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  To save a draft, add items to your POS Cart and click the <strong>Default</strong> button next to Checkout & Pay.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
+                {defaultInvoices.map((draft) => {
+                  const draftSubtotal = draft.items.reduce((s, it) => s + it.quantity * it.unitPrice, 0);
+                  const draftVat = Math.round(((draftSubtotal * (settings.vatPercent ?? 5)) / 100) * 1000) / 1000;
+                  const draftGrandTotal = Math.round(Math.max(0, draftSubtotal + draftVat - draft.discountAmount) * 1000) / 1000;
+
+                  return (
+                    <div
+                      key={draft.id}
+                      className="p-4 rounded-2xl bg-[#FEFAF3] border border-[#EADBCE] hover:border-[#C49A45] transition-all space-y-2.5 shadow-xs"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                            <span>{draft.name}</span>
+                            <span className="text-[10px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono font-medium">
+                              {new Date(draft.createdAt).toLocaleString()}
+                            </span>
+                          </h4>
+                          <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-800">Customer:</span>
+                            <span>{draft.customerInfo.name || 'Walk-in Cash Customer'}</span>
+                            {draft.customerInfo.phone && draft.customerInfo.phone !== 'N/A' && (
+                              <span className="text-slate-400 font-mono">({draft.customerInfo.phone})</span>
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-500 block uppercase font-medium">Total Value</span>
+                          <span className="text-base font-extrabold text-[#C49A45] font-mono">
+                            {settings.currencySymbol} {formatCurrencyAmount(draftGrandTotal)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Items Preview Table */}
+                      <div className="bg-white rounded-xl border border-slate-200 p-2 text-xs space-y-1">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100 flex justify-between">
+                          <span>Items ({draft.items.length})</span>
+                          <span>Qty &times; Price</span>
+                        </div>
+                        <div className="divide-y divide-slate-100 max-h-28 overflow-y-auto pr-1">
+                          {draft.items.map((it, idx) => (
+                            <div key={idx} className="py-1 flex items-center justify-between text-xs">
+                              <span className="truncate max-w-[280px] font-medium text-slate-800">
+                                {cleanItemName(it.product.name)}
+                              </span>
+                              <span className="font-mono text-slate-700 whitespace-nowrap">
+                                {it.quantity} &times; {settings.currencySymbol}{it.unitPrice.toFixed(3)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Draft Action Buttons */}
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Ready to load into POS
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handlePrintDefaultDraft(draft)}
+                            className="px-3 py-1.5 text-xs text-slate-700 bg-white hover:bg-slate-100 rounded-xl border border-slate-300 font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                            title="Print Default Invoice (A4 / 80mm Thermal Receipt)"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-[#C49A45]" />
+                            <span>Print</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteDefaultInvoice(draft.id)}
+                            className="px-2.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-200 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Delete this draft"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleLoadDefaultDraft(draft)}
+                            className="px-3.5 py-1.5 text-xs bg-[#C49A45] hover:bg-[#b58c38] text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                          >
+                            <ShoppingCart className="w-3.5 h-3.5" />
+                            <span>Load to Cart</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDefaultInvoicesModal(false)}
+                className="px-4 py-2 text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Feedback */}
+      {feedbackToast && (
+        <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="px-4 py-2.5 rounded-xl bg-slate-900 text-white shadow-xl flex items-center gap-2 text-xs border border-slate-700">
+            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{feedbackToast.message}</span>
+            <button
+              type="button"
+              onClick={() => setFeedbackToast(null)}
+              className="text-slate-400 hover:text-white ml-2 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

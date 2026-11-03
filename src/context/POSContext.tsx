@@ -23,6 +23,7 @@ import {
   ProfitAnalyticsRecord,
   CashWithdrawal,
   VendorCategory,
+  DefaultInvoiceDraft,
 } from '../types';
 import { INITIAL_USERS } from '../data/initialData';
 import { StorageService } from '../services/storage';
@@ -200,6 +201,7 @@ export interface POSContextType {
   updateCartItemDiscount: (productId: string, discount: number) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
+  setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   activePrintInvoice: Invoice | null;
   setActivePrintInvoice: (inv: Invoice | null) => void;
   exportBackup: () => void;
@@ -226,6 +228,14 @@ export interface POSContextType {
     closingCashBefore: number;
   }) => Promise<{ success: boolean; message: string }>;
   deleteCashWithdrawal: (id: string) => Promise<{ success: boolean }>;
+  defaultInvoices: DefaultInvoiceDraft[];
+  saveCartAsDefaultInvoice: (
+    name: string,
+    customerInfo: { name: string; phone: string; customerId?: string },
+    discountAmount: number,
+    discountReason?: string
+  ) => void;
+  deleteDefaultInvoice: (draftId: string) => void;
 }
 
 const POSContext = createContext<POSContextType | undefined>(undefined);
@@ -270,6 +280,35 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [cashWithdrawals, setCashWithdrawals] = useState<CashWithdrawal[]>(() =>
     StorageService.getCashWithdrawals()
   );
+  const [defaultInvoices, setDefaultInvoices] = useState<DefaultInvoiceDraft[]>(() =>
+    StorageService.getDefaultInvoices()
+  );
+
+  const saveCartAsDefaultInvoice = (
+    name: string,
+    customerInfo: { name: string; phone: string; customerId?: string },
+    discountAmount: number,
+    discountReason?: string
+  ) => {
+    const newDraft: DefaultInvoiceDraft = {
+      id: `draft_${Date.now()}`,
+      name: name.trim() || `Default Invoice ${defaultInvoices.length + 1}`,
+      createdAt: new Date().toISOString(),
+      items: [...cart],
+      customerInfo,
+      discountAmount,
+      discountReason,
+    };
+    const updated = [newDraft, ...defaultInvoices];
+    setDefaultInvoices(updated);
+    StorageService.saveDefaultInvoices(updated);
+  };
+
+  const deleteDefaultInvoice = (draftId: string) => {
+    const updated = defaultInvoices.filter((d) => d.id !== draftId);
+    setDefaultInvoices(updated);
+    StorageService.saveDefaultInvoices(updated);
+  };
   const [selectedCustomerIdForPOS, setSelectedCustomerIdForPOS] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isOnline, setIsOnlineState] = useState<boolean>(navigator.onLine);
@@ -2748,6 +2787,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCartItemDiscount,
         removeFromCart,
         clearCart,
+        setCart,
         activePrintInvoice,
         setActivePrintInvoice,
         exportBackup,
@@ -2767,6 +2807,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cashWithdrawals,
         recordCashWithdrawal,
         deleteCashWithdrawal,
+        defaultInvoices,
+        saveCartAsDefaultInvoice,
+        deleteDefaultInvoice,
       }}
     >
       {children}

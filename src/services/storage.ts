@@ -13,6 +13,7 @@ import {
   Category,
   CashWithdrawal,
   VendorCategory,
+  DefaultInvoiceDraft,
 } from '../types';
 import {
   INITIAL_COMPANY_SETTINGS,
@@ -48,6 +49,7 @@ const KEYS = {
   CASH_WITHDRAWALS: 'allnoor_cash_withdrawals_v4',
   DEVICE_ID: 'allnoor_device_id_v4',
   INVOICE_SEQ: 'allnoor_invoice_seq_v4',
+  DEFAULT_INVOICES: 'allnoor_default_invoices_v4',
 };
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -344,7 +346,15 @@ export const StorageService = {
     safeSet(KEYS.STOCK_ADJUSTMENTS, []);
     safeSet(KEYS.CUSTOMER_TRANSACTIONS, []);
     safeSet(KEYS.CASH_WITHDRAWALS, []);
+    safeSet(KEYS.DEFAULT_INVOICES, []);
     safeSet(KEYS.INVOICE_SEQ, '100000');
     localStorage.setItem(KEYS.CURRENT_USER_ID, INITIAL_USERS[0].id);
+  },
+
+  getDefaultInvoices(): DefaultInvoiceDraft[] {
+    return safeGet<DefaultInvoiceDraft[]>(KEYS.DEFAULT_INVOICES, []);
+  },
+  saveDefaultInvoices(invoices: DefaultInvoiceDraft[]): void {
+    safeSet(KEYS.DEFAULT_INVOICES, invoices);
   },
 };

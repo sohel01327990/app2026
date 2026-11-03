@@ -427,3 +427,14 @@ export interface ProfitAnalyticsRecord {
   expenseVouchersCount: number;
   updatedAt: string;
 }
+
+export interface DefaultInvoiceDraft {
+  id: string;
+  name: string;
+  createdAt: string;
+  items: CartItem[];
+  customerInfo: { name: string; phone: string; customerId?: string };
+  discountAmount: number;
+  discountReason?: string;
+}
+
