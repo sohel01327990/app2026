@@ -59,6 +59,16 @@ export const InventoryModule: React.FC = () => {
   const [formStock, setFormStock] = useState(100);
   const [formThreshold, setFormThreshold] = useState(20);
   const [formBrand, setFormBrand] = useState('');
+  const [nameError, setNameError] = useState('');
+
+  const isDuplicateName = useMemo(() => {
+    const clean = formName.trim().toLowerCase();
+    if (!clean) return false;
+    return products.some((p) => {
+      if (editingProduct && p.id === editingProduct.id) return false;
+      return p.name.trim().toLowerCase() === clean;
+    });
+  }, [products, formName, editingProduct]);
 
   // Inward PO Form
   const [inwardProductId, setInwardProductId] = useState('');
@@ -169,6 +179,7 @@ export const InventoryModule: React.FC = () => {
   const handleOpenAdd = () => {
     setEditingProduct(null);
     setFormName('');
+    setNameError('');
     setFormSku(`SKU-${Date.now().toString().slice(-5)}`);
     setFormBarcode(`${Date.now()}`.slice(-12));
     setFormCategory(categories[0]?.name || 'General');
@@ -185,6 +196,7 @@ export const InventoryModule: React.FC = () => {
   const handleOpenEdit = (prod: Product) => {
     setEditingProduct(prod);
     setFormName(prod.name);
+    setNameError('');
     setFormSku(prod.sku);
     setFormBarcode(prod.barcode);
     setFormCategory(prod.category);
@@ -200,11 +212,18 @@ export const InventoryModule: React.FC = () => {
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim()) return;
+    const cleanName = formName.trim();
+    if (!cleanName) return;
 
+    if (isDuplicateName) {
+      setNameError('All Ready Add This Product / Material Name');
+      return;
+    }
+
+    setNameError('');
     if (editingProduct) {
       updateProduct(editingProduct.id, {
-        name: formName.trim(),
+        name: cleanName,
         sku: formSku.trim().toUpperCase(),
         barcode: formBarcode.trim(),
         category: formCategory,
@@ -218,7 +237,7 @@ export const InventoryModule: React.FC = () => {
       });
     } else {
       addProduct({
-        name: formName.trim(),
+        name: cleanName,
         sku: formSku.trim().toUpperCase(),
         barcode: formBarcode.trim() || `${Date.now()}`.slice(-12),
         category: formCategory,
@@ -559,6 +578,13 @@ export const InventoryModule: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveProduct} className="space-y-3 text-xs">
+              {(isDuplicateName || nameError) && (
+                <div className="p-3 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-700 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>All Ready Add This Product / Material Name</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">Product / Material Name *</label>
@@ -567,9 +593,22 @@ export const InventoryModule: React.FC = () => {
                     required
                     placeholder="e.g. Shah Cement 50kg"
                     value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 focus:bg-white focus:outline-none focus:border-[#C49A45]"
+                    onChange={(e) => {
+                      setFormName(e.target.value);
+                      if (nameError) setNameError('');
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl bg-[#FEFAF3] border text-slate-900 focus:bg-white focus:outline-none transition-all ${
+                      isDuplicateName || nameError
+                        ? 'border-rose-500 ring-2 ring-rose-200'
+                        : 'border-slate-300 focus:border-[#C49A45]'
+                    }`}
                   />
+                  {(isDuplicateName || nameError) && (
+                    <p className="mt-1 text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      <span>All Ready Add This Product / Material Name</span>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">SKU Code *</label>
@@ -679,14 +718,22 @@ export const InventoryModule: React.FC = () => {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowProductModal(false)}
+                  onClick={() => {
+                    setShowProductModal(false);
+                    setNameError('');
+                  }}
                   className="flex-1 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-[#C49A45] hover:bg-[#b58c38] text-white font-bold shadow-md cursor-pointer"
+                  disabled={isDuplicateName}
+                  className={`flex-1 py-2 rounded-xl text-white font-bold shadow-md cursor-pointer transition-all ${
+                    isDuplicateName
+                      ? 'bg-rose-400 opacity-60 cursor-not-allowed'
+                      : 'bg-[#C49A45] hover:bg-[#b58c38]'
+                  }`}
                 >
                   Save Product
                 </button>

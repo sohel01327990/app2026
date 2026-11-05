@@ -35,6 +35,8 @@ import {
   FileText,
   ArrowRight,
   Printer,
+  Filter,
+  Layers,
 } from 'lucide-react';
 
 export const POSModule: React.FC = () => {
@@ -120,6 +122,10 @@ export const POSModule: React.FC = () => {
   const [defaultInvoiceSearchQuery, setDefaultInvoiceSearchQuery] = useState('');
   const [activeLoadedDraftId, setActiveLoadedDraftId] = useState<string | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  // Category Find Modal state
+  const [showCategoryFindModal, setShowCategoryFindModal] = useState(false);
+  const [categoryFindSearch, setCategoryFindSearch] = useState('');
 
   useEffect(() => {
     if (feedbackToast) {
@@ -506,6 +512,7 @@ export const POSModule: React.FC = () => {
         {/* Categories Bar (Pinned / Fixed Header) */}
         <div className="px-3 py-2 bg-white border-b border-[#EADBCE] flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
           <button
+            type="button"
             onClick={() => setSelectedCategory('all')}
             className={`px-3 py-1.5 text-xs rounded-xl font-bold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
               selectedCategory === 'all'
@@ -514,6 +521,15 @@ export const POSModule: React.FC = () => {
             }`}
           >
             All Categories ({products.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCategoryFindModal(true)}
+            className="px-3 py-1.5 text-xs rounded-xl font-bold whitespace-nowrap transition-colors shrink-0 cursor-pointer bg-amber-50 hover:bg-amber-100 text-[#856324] border border-[#C49A45]/50 flex items-center gap-1.5 shadow-2xs"
+            title="Open Category Finder & List"
+          >
+            <Filter className="w-3.5 h-3.5 text-[#C49A45]" />
+            <span>Category Find ({categories.length})</span>
           </button>
           {categories.map((cat) => {
             const count = products.filter((p) => p.category === cat.name).length;
@@ -1719,6 +1735,140 @@ export const POSModule: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowDefaultInvoicesModal(false)}
+                className="px-4 py-2 text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Find & Filter Modal */}
+      {showCategoryFindModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-xl rounded-3xl bg-white border border-[#EADBCE] p-6 shadow-2xl text-slate-900 space-y-4 my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 shrink-0">
+                  <Filter className="w-5 h-5 text-[#C49A45]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span>Category Finder & List</span>
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded-full text-xs font-mono font-bold">
+                      {categories.length + 1}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Search and filter products by selecting any category below.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCategoryFindModal(false);
+                  setCategoryFindSearch('');
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search filter for categories */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Search categories..."
+                value={categoryFindSearch}
+                onChange={(e) => setCategoryFindSearch(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-[#FEFAF3] border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C49A45] font-medium"
+              />
+              {categoryFindSearch && (
+                <button
+                  type="button"
+                  onClick={() => setCategoryFindSearch('')}
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Categories list grid */}
+            <div className="max-h-[55vh] overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
+              {/* All Categories Option */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setShowCategoryFindModal(false);
+                  setCategoryFindSearch('');
+                }}
+                className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                  selectedCategory === 'all'
+                    ? 'bg-[#C49A45] text-white border-[#C49A45] shadow-md font-bold'
+                    : 'bg-[#FEFAF3] hover:bg-amber-50/70 border-[#EADBCE] text-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Layers className={`w-4 h-4 ${selectedCategory === 'all' ? 'text-white' : 'text-[#C49A45]'}`} />
+                  <span className="text-xs">All Categories</span>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
+                  selectedCategory === 'all' ? 'bg-white/20 text-white' : 'bg-white border border-slate-200 text-slate-600'
+                }`}>
+                  {products.length}
+                </span>
+              </button>
+
+              {categories
+                .filter((cat) => {
+                  if (!categoryFindSearch.trim()) return true;
+                  return cat.name.toLowerCase().includes(categoryFindSearch.toLowerCase().trim());
+                })
+                .map((cat) => {
+                  const count = products.filter((p) => p.category === cat.name).length;
+                  const isSelected = selectedCategory === cat.name;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(cat.name);
+                        setShowCategoryFindModal(false);
+                        setCategoryFindSearch('');
+                      }}
+                      className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#C49A45] text-white border-[#C49A45] shadow-md font-bold'
+                          : 'bg-[#FEFAF3] hover:bg-amber-50/70 border-[#EADBCE] text-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Layers className={`w-4 h-4 shrink-0 ${isSelected ? 'text-white' : 'text-[#C49A45]'}`} />
+                        <span className="text-xs truncate">{cat.name}</span>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-mono shrink-0 ml-2 ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-white border border-slate-200 text-slate-600'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+
+            <div className="pt-2 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCategoryFindModal(false);
+                  setCategoryFindSearch('');
+                }}
                 className="px-4 py-2 text-xs rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
               >
                 Close

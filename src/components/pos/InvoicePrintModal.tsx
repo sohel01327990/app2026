@@ -198,6 +198,15 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({ invoice, o
                 </div>
               </div>
 
+              {/* QUOTATION H2 Banner for DEFAULT Invoices */}
+              {invoice.id.startsWith('DEFAULT-') && (
+                <div className="w-full py-2.5 bg-red-50 border border-red-200 rounded-xl text-center shadow-2xs">
+                  <h2 className="text-base font-extrabold text-red-600 tracking-widest uppercase">
+                    QUOTATION
+                  </h2>
+                </div>
+              )}
+
               {/* Items Table */}
               <table className="w-full text-left text-xs border-collapse">
                 <thead>

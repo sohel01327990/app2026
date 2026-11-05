@@ -287,7 +287,19 @@ export function downloadInvoicePDF(
       doc.setTextColor(71, 85, 105);
       doc.text(`Terminal ID: ${invoice.deviceId}`, pageWidth - 18, y + 17, { align: 'right' });
 
-      y += 28;
+      y += 26;
+
+      if (invoice.id.startsWith('DEFAULT-')) {
+        doc.setFillColor(254, 242, 242);
+        doc.roundedRect(14, y, pageWidth - 28, 8, 1, 1, 'F');
+        doc.setDrawColor(254, 202, 202);
+        doc.roundedRect(14, y, pageWidth - 28, 8, 1, 1, 'S');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(220, 38, 38);
+        doc.text('QUOTATION', pageWidth / 2, y + 5.5, { align: 'center' });
+        y += 11;
+      }
 
       const tableData = invoice.items.map((it, idx) => [
         String(idx + 1),
@@ -568,6 +580,13 @@ export function generateInvoiceHTML(
         </div>
       </div>
     </div>
+    ${invoice.id.startsWith('DEFAULT-') ? `
+    <div style="width: 100%; padding: 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; text-align: center; margin-bottom: 16px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #dc2626; letter-spacing: 2px; text-transform: uppercase;">
+        QUOTATION
+      </h2>
+    </div>
+    ` : ''}
     <table>
       <thead>
         <tr>

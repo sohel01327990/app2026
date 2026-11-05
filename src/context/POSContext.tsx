@@ -1275,6 +1275,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addProduct = (productData: Omit<Product, 'id'>): Product => {
+    const existing = products.find(
+      (p) => p.name.trim().toLowerCase() === productData.name.trim().toLowerCase()
+    );
+    if (existing) {
+      console.warn('All Ready Add This Product / Material Name:', productData.name);
+      return existing;
+    }
     const id = `prd_${Date.now()}`;
     const newProd: Product = { ...productData, id };
     const updated = [newProd, ...products];
