@@ -15,6 +15,7 @@ import {
   Minus,
   Trash2,
   AlertTriangle,
+  AlertOctagon,
   Lock,
   CheckCircle,
   CreditCard,
@@ -121,11 +122,38 @@ export const POSModule: React.FC = () => {
   const [showDefaultInvoicesModal, setShowDefaultInvoicesModal] = useState(false);
   const [defaultInvoiceSearchQuery, setDefaultInvoiceSearchQuery] = useState('');
   const [activeLoadedDraftId, setActiveLoadedDraftId] = useState<string | null>(null);
-  const [feedbackToast, setFeedbackToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+  const [feedbackToast, setFeedbackToast] = useState<{ message: string; type: 'success' | 'info' | 'error' | 'warning' } | null>(null);
+  const [stockOutModalItem, setStockOutModalItem] = useState<Product | null>(null);
 
   // Category Find Modal state
   const [showCategoryFindModal, setShowCategoryFindModal] = useState(false);
   const [categoryFindSearch, setCategoryFindSearch] = useState('');
+
+  // Handle adding items to cart/invoice with Stock Out protection
+  const handleAddToCart = (prod: Product, qty = 1): boolean => {
+    const liveProd = products.find((p) => p.id === prod.id) || prod;
+    const stock = Number(liveProd.currentStock ?? 0);
+
+    if (stock <= 0) {
+      setStockOutModalItem(liveProd);
+      setFeedbackToast({
+        message: `Stock Out: "${cleanItemName(liveProd.name)}" is out of stock!`,
+        type: 'error',
+      });
+      return false;
+    }
+
+    const added = addToCart(liveProd, qty);
+    if (!added) {
+      setStockOutModalItem(liveProd);
+      setFeedbackToast({
+        message: `Stock Out: "${cleanItemName(liveProd.name)}" is out of stock!`,
+        type: 'error',
+      });
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     if (feedbackToast) {
@@ -152,7 +180,33 @@ export const POSModule: React.FC = () => {
   };
 
   const handleLoadDefaultDraft = (draft: DefaultInvoiceDraft) => {
-    setCart(draft.items);
+    const zeroStockItems = draft.items.filter((it) => {
+      const live = products.find((p) => p.id === it.product.id);
+      const stock = live ? live.currentStock : it.product.currentStock;
+      return Number(stock ?? 0) <= 0;
+    });
+
+    const validItems = draft.items.filter((it) => {
+      const live = products.find((p) => p.id === it.product.id);
+      const stock = live ? live.currentStock : it.product.currentStock;
+      return Number(stock ?? 0) > 0;
+    });
+
+    if (zeroStockItems.length > 0) {
+      const outNames = zeroStockItems.map((it) => cleanItemName(it.product.name)).join(', ');
+      setFeedbackToast({
+        message: `Stock Out: ${outNames} (${zeroStockItems.length} item) has 0 stock and was not added to the active invoice!`,
+        type: 'error',
+      });
+      if (validItems.length === 0) {
+        const first = zeroStockItems[0];
+        const liveFirst = products.find((p) => p.id === first.product.id) || first.product;
+        setStockOutModalItem(liveFirst);
+        return;
+      }
+    }
+
+    setCart(validItems);
     setCartDiscount(draft.discountAmount);
     setDiscountInput(draft.discountAmount > 0 ? String(draft.discountAmount) : '');
     setDiscountReason(draft.discountReason || '');
@@ -168,10 +222,12 @@ export const POSModule: React.FC = () => {
     }
     setActiveLoadedDraftId(draft.id);
     setShowDefaultInvoicesModal(false);
-    setFeedbackToast({
-      message: `Loaded "${draft.name}" into POS cart. Click "Checkout & Pay" to sync to Firebase!`,
-      type: 'success',
-    });
+    if (zeroStockItems.length === 0) {
+      setFeedbackToast({
+        message: `Loaded "${draft.name}" into POS cart. Click "Checkout & Pay" to sync to Firebase!`,
+        type: 'success',
+      });
+    }
   };
 
   const handlePrintDefaultDraft = (draft: DefaultInvoiceDraft) => {
@@ -468,7 +524,7 @@ export const POSModule: React.FC = () => {
                   e.preventDefault();
                   const target = filteredProducts[selectedProductIndex] || filteredProducts[0];
                   if (target) {
-                    addToCart(target, 1);
+                    handleAddToCart(target, 1);
                   }
                 }
               }}
@@ -568,6 +624,7 @@ export const POSModule: React.FC = () => {
                 <tbody className="divide-y divide-slate-200">
                   {filteredProducts.map((prod, idx) => {
                     const isSelected = idx === selectedProductIndex;
+                    const isZeroStock = Number(prod.currentStock ?? 0) <= 0;
                     const isLowStock = prod.currentStock <= prod.minStockThreshold;
                     return (
                       <tr
@@ -575,10 +632,12 @@ export const POSModule: React.FC = () => {
                         onClick={() => {
                           setSelectedProductIndex(idx);
                         }}
-                        onDoubleClick={() => addToCart(prod, 1)}
+                        onDoubleClick={() => handleAddToCart(prod, 1)}
                         className={`transition-colors cursor-pointer select-none ${
                           isSelected
                             ? 'bg-[#2563eb] text-white font-medium hover:bg-[#1d4ed8]'
+                            : isZeroStock
+                            ? 'bg-rose-50/40 hover:bg-rose-50 text-slate-800'
                             : idx % 2 === 0
                             ? 'bg-white hover:bg-amber-50/50 text-slate-800'
                             : 'bg-[#FAF8F5] hover:bg-amber-50/50 text-slate-800'
@@ -616,17 +675,23 @@ export const POSModule: React.FC = () => {
 
                         {/* Stock Column */}
                         <td className="py-1.5 px-2.5 border-r border-slate-300/60 text-center font-mono whitespace-nowrap">
-                          <span
-                            className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-bold ${
-                              isSelected
-                                ? 'bg-white/20 text-white'
-                                : isLowStock
-                                ? 'bg-rose-100 text-rose-700'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {prod.currentStock.toLocaleString()} {prod.unit}
-                          </span>
+                          {isZeroStock ? (
+                            <span className="inline-block px-2 py-0.5 rounded text-[11px] font-black bg-rose-600 text-white shadow-2xs">
+                              Stock Out (0)
+                            </span>
+                          ) : (
+                            <span
+                              className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-bold ${
+                                isSelected
+                                  ? 'bg-white/20 text-white'
+                                  : isLowStock
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {prod.currentStock.toLocaleString()} {prod.unit}
+                            </span>
+                          )}
                         </td>
 
                         {/* Action Column */}
@@ -635,15 +700,18 @@ export const POSModule: React.FC = () => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              addToCart(prod, 1);
+                              handleAddToCart(prod, 1);
                             }}
                             className={`px-2 py-0.5 text-[11px] font-bold rounded-md shadow-2xs transition-transform active:scale-95 cursor-pointer ${
-                              isSelected
+                              isZeroStock
+                                ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-300 font-black'
+                                : isSelected
                                 ? 'bg-white text-[#2563eb] hover:bg-blue-50'
                                 : 'bg-[#C49A45] text-white hover:bg-[#a88235]'
                             }`}
+                            title={isZeroStock ? 'Stock Out - Cannot add to invoice' : '+ Add to cart'}
                           >
-                            + Add
+                            {isZeroStock ? 'Stock Out' : '+ Add'}
                           </button>
                         </td>
                       </tr>
@@ -723,51 +791,81 @@ export const POSModule: React.FC = () => {
           /* Product Cards Grid: Responsive 4 cols on 2xl, 3 on xl, 2 on sm/md/lg, 1 on mobile */
           <div className="flex-1 p-3.5 sm:p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5 content-start">
             {filteredProducts.map((prod) => {
+              const isZeroStock = Number(prod.currentStock ?? 0) <= 0;
               const isLowStock = prod.currentStock <= prod.minStockThreshold;
               return (
                 <div
                   key={prod.id}
-                  onClick={() => addToCart(prod, 1)}
-                  className="p-3.5 rounded-2xl bg-white border border-[#EADBCE] product-card-hover hover:border-[#C49A45] hover:bg-[#C49A45] hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group select-none relative min-h-[160px]"
+                  onClick={() => handleAddToCart(prod, 1)}
+                  className={`p-3.5 rounded-2xl border product-card-hover transition-all duration-200 cursor-pointer flex flex-col justify-between group select-none relative min-h-[160px] ${
+                    isZeroStock
+                      ? 'bg-white border-rose-300 hover:border-rose-500 hover:bg-rose-50/50 hover:shadow-md'
+                      : 'bg-white border-[#EADBCE] hover:border-[#C49A45] hover:bg-[#C49A45] hover:shadow-lg'
+                  }`}
                 >
                   <div>
-                    {/* Top Row: SKU badge & Brand */}
+                    {/* Top Row: SKU badge & Brand / Stock Out status */}
                     <div className="flex items-center justify-between gap-1 text-[11px] mb-1.5">
-                      <span className="font-mono font-bold text-[#856324] group-hover:text-white bg-amber-50 group-hover:bg-white/20 px-2 py-0.5 rounded-md transition-colors truncate max-w-[120px]">
+                      <span className={`font-mono font-bold px-2 py-0.5 rounded-md transition-colors truncate max-w-[120px] ${
+                        isZeroStock
+                          ? 'text-slate-700 bg-slate-100'
+                          : 'text-[#856324] group-hover:text-white bg-amber-50 group-hover:bg-white/20'
+                      }`}>
                         {prod.sku}
                       </span>
-                      <span className="text-[10px] text-slate-400 group-hover:text-white/70 font-mono">
-                        {prod.unit}
-                      </span>
+                      {isZeroStock ? (
+                        <span className="font-mono font-black text-rose-700 bg-rose-100 border border-rose-300 px-2 py-0.5 rounded-md text-[10px] uppercase">
+                          Stock Out
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 group-hover:text-white/70 font-mono">
+                          {prod.unit}
+                        </span>
+                      )}
                     </div>
 
                     {/* Product Name */}
-                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-white transition-colors line-clamp-2 leading-snug mb-0.5">
+                    <h4 className={`text-sm font-bold transition-colors line-clamp-2 leading-snug mb-0.5 ${
+                      isZeroStock ? 'text-slate-800' : 'text-slate-900 group-hover:text-white'
+                    }`}>
                       {cleanItemName(prod.name)}
                     </h4>
 
                     {/* Category */}
-                    <p className="text-xs text-slate-500 group-hover:text-white/80 transition-colors truncate">
+                    <p className={`text-xs transition-colors truncate ${
+                      isZeroStock ? 'text-slate-400' : 'text-slate-500 group-hover:text-white/80'
+                    }`}>
                       {prod.category}
                     </p>
                   </div>
 
                   {/* Bottom Info Section */}
-                  <div className="mt-3 pt-2.5 border-t border-slate-100 group-hover:border-white/20 transition-colors space-y-2">
+                  <div className={`mt-3 pt-2.5 border-t transition-colors space-y-2 ${
+                    isZeroStock ? 'border-rose-100' : 'border-slate-100 group-hover:border-white/20'
+                  }`}>
                     {/* Stock Badge & Min Price Row */}
                     <div className="flex items-center justify-between gap-1 text-[11px]">
-                      <span
-                        className={`inline-flex items-center gap-1 font-mono font-bold px-2 py-0.5 rounded-md transition-colors whitespace-nowrap ${
-                          isLowStock
-                            ? 'bg-rose-50 text-rose-700 group-hover:bg-rose-900/40 group-hover:text-white'
-                            : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-900/40 group-hover:text-white'
-                        }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${isLowStock ? 'bg-rose-500' : 'bg-emerald-500'} group-hover:bg-white`} />
-                        Stock: {prod.currentStock.toLocaleString()} {prod.unit}
-                      </span>
+                      {isZeroStock ? (
+                        <span className="inline-flex items-center gap-1 font-mono font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 whitespace-nowrap">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                          Stock Out (0)
+                        </span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 font-mono font-bold px-2 py-0.5 rounded-md transition-colors whitespace-nowrap ${
+                            isLowStock
+                              ? 'bg-rose-50 text-rose-700 group-hover:bg-rose-900/40 group-hover:text-white'
+                              : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-900/40 group-hover:text-white'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${isLowStock ? 'bg-rose-500' : 'bg-emerald-500'} group-hover:bg-white`} />
+                          Stock: {prod.currentStock.toLocaleString()} {prod.unit}
+                        </span>
+                      )}
 
-                      <span className="text-[10px] text-slate-400 group-hover:text-white/70 transition-colors font-mono whitespace-nowrap">
+                      <span className={`text-[10px] transition-colors font-mono whitespace-nowrap ${
+                        isZeroStock ? 'text-slate-400' : 'text-slate-400 group-hover:text-white/70'
+                      }`}>
                         Min: {settings.currencySymbol}{prod.minSellingPrice.toLocaleString()}
                       </span>
                     </div>
@@ -775,17 +873,27 @@ export const POSModule: React.FC = () => {
                     {/* Price & Add to Cart Row */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="font-mono leading-none">
-                        <span className="text-base sm:text-lg font-extrabold text-slate-900 group-hover:text-white transition-colors tabular-nums">
+                        <span className={`text-base sm:text-lg font-extrabold transition-colors tabular-nums ${
+                          isZeroStock ? 'text-slate-800' : 'text-slate-900 group-hover:text-white'
+                        }`}>
                           {settings.currencySymbol}{prod.regularPrice.toLocaleString()}
                         </span>
-                        <span className="text-xs text-slate-400 group-hover:text-white/80 font-normal ml-0.5">
+                        <span className={`text-xs font-normal ml-0.5 ${
+                          isZeroStock ? 'text-slate-400' : 'text-slate-400 group-hover:text-white/80'
+                        }`}>
                           /{prod.unit}
                         </span>
                       </div>
 
-                      <div className="px-2.5 py-1 text-xs font-bold rounded-lg bg-[#C49A45] group-hover:bg-white text-white group-hover:text-[#856324] shadow-xs transition-colors shrink-0 whitespace-nowrap flex items-center gap-1">
-                        <span>+ Add</span>
-                      </div>
+                      {isZeroStock ? (
+                        <div className="px-2.5 py-1 text-xs font-black rounded-lg bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs shrink-0 whitespace-nowrap flex items-center gap-1">
+                          <span>Stock Out</span>
+                        </div>
+                      ) : (
+                        <div className="px-2.5 py-1 text-xs font-bold rounded-lg bg-[#C49A45] group-hover:bg-white text-white group-hover:text-[#856324] shadow-xs transition-colors shrink-0 whitespace-nowrap flex items-center gap-1">
+                          <span>+ Add</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1878,12 +1986,102 @@ export const POSModule: React.FC = () => {
         </div>
       )}
 
+      {/* Stock Out Alert Modal */}
+      {stockOutModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border-2 border-rose-500 overflow-hidden transform transition-all animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-rose-600 to-rose-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <AlertOctagon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-wider">Stock Out</h3>
+                  <p className="text-[11px] text-rose-100">Item cannot be added to the invoice</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStockOutModalItem(null)}
+                className="w-8 h-8 rounded-lg hover:bg-white/20 flex items-center justify-center text-white/90 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-rose-800 uppercase tracking-wide">
+                      Out of Stock Warning
+                    </p>
+                    <p className="text-sm font-extrabold text-slate-900 mt-0.5 truncate">
+                      {cleanItemName(stockOutModalItem.name)}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 font-mono text-xs text-slate-600">
+                      <span>SKU: {stockOutModalItem.sku}</span>
+                      <span>&middot;</span>
+                      <span className="text-rose-700 font-bold">
+                        Available Stock: 0 {stockOutModalItem.unit}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#FEFAF3] border border-[#EADBCE] rounded-xl p-3 text-xs text-slate-700 leading-relaxed">
+                <p>
+                  This product has <strong className="text-rose-600 font-bold">0 stock</strong> in inventory.
+                  System rules prevent adding out-of-stock items to invoices.
+                </p>
+                <p className="mt-1.5 text-slate-500">
+                  To add this item, please receive stock in the <strong>Inventory &rarr; Inward (PO)</strong> module first.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => setStockOutModalItem(null)}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Acknowledge (OK)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast Feedback */}
       {feedbackToast && (
         <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <div className="px-4 py-2.5 rounded-xl bg-slate-900 text-white shadow-xl flex items-center gap-2 text-xs border border-slate-700">
-            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{feedbackToast.message}</span>
+          <div
+            className={`px-4 py-2.5 rounded-xl text-white shadow-xl flex items-center gap-2 text-xs border ${
+              feedbackToast.type === 'error'
+                ? 'bg-rose-900 border-rose-700 shadow-rose-900/40'
+                : feedbackToast.type === 'warning'
+                ? 'bg-amber-900 border-amber-700 shadow-amber-900/40'
+                : 'bg-slate-900 border-slate-700'
+            }`}
+          >
+            {feedbackToast.type === 'error' ? (
+              <AlertOctagon className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : feedbackToast.type === 'warning' ? (
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            ) : (
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <span className="font-bold">{feedbackToast.message}</span>
             <button
               type="button"
               onClick={() => setFeedbackToast(null)}

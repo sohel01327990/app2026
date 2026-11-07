@@ -195,7 +195,7 @@ export interface POSContextType {
   pendingSyncCount: number;
   syncNow: () => Promise<{ synced: number; conflicts: number }>;
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
+  addToCart: (product: Product, quantity?: number) => boolean;
   updateCartItemQty: (productId: string, qty: number) => void;
   updateCartItemPrice: (productId: string, price: number) => void;
   updateCartItemDiscount: (productId: string, discount: number) => void;
@@ -1831,7 +1831,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuditLogs(StorageService.getAuditLogs());
   };
 
-  const addToCart = (product: Product, quantity = 1) => {
+  const addToCart = (product: Product, quantity = 1): boolean => {
+    const liveProd = products.find((p) => p.id === product.id) || product;
+    const stock = Number(liveProd.currentStock ?? 0);
+    if (stock <= 0) {
+      return false;
+    }
+
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
@@ -1850,15 +1856,16 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return [
         ...prev,
         {
-          product,
+          product: liveProd,
           quantity,
-          unitPrice: product.regularPrice,
-          unit: product.unit,
+          unitPrice: liveProd.regularPrice,
+          unit: liveProd.unit,
           discount: 0,
-          total: quantity * product.regularPrice,
+          total: quantity * liveProd.regularPrice,
         },
       ];
     });
+    return true;
   };
 
   const updateCartItemQty = (productId: string, qty: number) => {
